@@ -2,7 +2,7 @@
 
 **AutoDataMining** is a Python library for running consistent, inspectable data mining experiments with scikit-learn. It brings preprocessing, model comparison, evaluation, simple explanations, reports, and model persistence behind one API. It integrates existing estimators; it does not introduce new machine learning algorithms.
 
-> **Status: alpha (0.1.0).** The public API may change. Benchmark results depend on the dataset, split, metric, and estimator settings, and are not a guarantee of future performance. Review results before using a model in a consequential setting.
+> **Status: alpha (0.1.1, unreleased).** The public API may change. Benchmark results depend on the dataset, split, metric, and estimator settings, and are not a guarantee of future performance. Review results before using a model in a consequential setting.
 
 ## Installation
 
@@ -136,6 +136,37 @@ embedding, pca = reduce_dimensions(numeric_features, method="pca", n_components=
 
 These convenience helpers fit directly to the data passed to them. For scientific evaluation, put selection or reduction inside a cross-validation `Pipeline` so each fold learns its transform from training data only.
 
+### Flexible preprocessing and diagnostic plots
+
+Preprocessing defaults to median imputation and standard scaling for numeric features, plus most-frequent imputation and one-hot encoding for categorical features. Override those choices per experiment:
+
+```python
+preprocessing = {
+    "numeric_imputer": "median",       # mean, median, most_frequent, constant
+    "numeric_scaler": "robust",        # standard, minmax, robust, none
+    "categorical_imputer": "constant", # most_frequent, constant
+    "categorical_fill_value": "unknown",
+    "categorical_encoder": "ordinal", # onehot, ordinal
+}
+results = AutoDataMining(
+    task="classification", target="label", preprocessing=preprocessing,
+).fit(data)
+```
+
+Advanced users can pass a cloneable scikit-learn transformer as `preprocessing=...` to replace the complete default transformer, or use `numeric_transformer` and `categorical_transformer` in the options dictionary to replace just one branch. The custom transformer is cloned and fitted inside each training fold. See [the preprocessing guide](docs/preprocessing.md) for examples and supported options.
+
+Inspect the raw input before fitting. The plots show missing-value counts and heatmaps, numeric correlation heatmaps, feature distributions, boxplots for potential outliers, and target distributions:
+
+```python
+fig, axes = AutoDataMining.plot_preprocessing(data, kind="overview", target="label")
+fig.savefig("preprocessing-overview.png", dpi=150, bbox_inches="tight")
+
+fig, ax = AutoDataMining.plot_preprocessing(data, kind="correlation", target="label")
+fig.savefig("correlations.png", dpi=150, bbox_inches="tight")
+```
+
+`plot_preprocessing(data, kind=...)` is also available at package level. Supported kinds are `overview`, `missing_heatmap`, `heatmap`, `correlation`, `distributions`, `outliers`, and `target`. Plots need `autodatamining[visualization]`; functions return `(figure, axes)` and display only when `show=True`. These are exploratory diagnostics of the data passed in, not plots of a fitted transformation.
+
 ### Explainability
 
 ```python
@@ -211,7 +242,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) and [CHANGELOG.md](CHANGELOG.md). Contrib
 5. Publish to PyPI using an API token held outside the source tree or trusted publishing.
 6. Verify the published install and create a version tag.
 
-The project has not been published by this repository setup. Name availability and legal attribution must be checked again at release time. No credentials belong in the repository.
+Version 0.1.0 was published to PyPI. Version 0.1.1 is a local unreleased update and has not been uploaded. Check the project owner, metadata, and release configuration again before publishing another version. No credentials belong in the repository.
 
 ## License
 

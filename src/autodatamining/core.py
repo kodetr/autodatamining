@@ -25,7 +25,7 @@ from .evaluation import (
     regression_metrics,
 )
 from .exceptions import DataValidationError, NoModelsSucceededError
-from .preprocessing import make_preprocessor
+from .preprocessing import make_preprocessor, plot_preprocessing
 from .registry import DEFAULT_REGISTRY
 from .results import MiningResults, ValidatedModel
 from .version import __version__
@@ -38,7 +38,8 @@ class AutoDataMining:
 
     Parameters mirror the quick-start API. ``model_params`` maps estimator names to sklearn
     parameters. For anomaly detection, optional ``target`` labels use 1/True for anomalies and
-    0/False for normal observations.
+    0/False for normal observations. ``preprocessing`` accepts strategy options or a cloneable
+    scikit-learn transformer.
     """
 
     def __init__(
@@ -52,6 +53,7 @@ class AutoDataMining:
         scoring=None,
         registry=None,
         model_params=None,
+        preprocessing=None,
     ):
         self.config = MiningConfig(task=task, target=target, test_size=test_size, cv=cv,
                                    random_state=random_state, scoring=scoring)
@@ -60,6 +62,7 @@ class AutoDataMining:
         self.models = [models] if isinstance(models, str) else (list(models) if models is not None else None)
         self.registry = registry or DEFAULT_REGISTRY
         self.model_params = model_params or {}
+        self.preprocessing = preprocessing
         if not isinstance(self.model_params, dict):
             raise DataValidationError("model_params must be a mapping of model name to parameters")
         self.results_ = None
@@ -70,6 +73,11 @@ class AutoDataMining:
     def profile(data, target=None):
         """Summarize a dataset without fitting models."""
         return profile_data(data, target=target)
+
+    @staticmethod
+    def plot_preprocessing(data, kind="overview", target=None, **kwargs):
+        """Plot missingness, correlations, distributions, outliers, or target diagnostics."""
+        return plot_preprocessing(data, kind=kind, target=target, **kwargs)
 
     def fit(self, data):
         """Fit, evaluate, and compare estimators; return a :class:`MiningResults` object."""
@@ -109,7 +117,10 @@ class AutoDataMining:
     def _pipeline(self, frame, name, task):
         spec = self.registry.get(name, task)
         estimator = spec.instantiate(self.config.random_state, self._params(name))
-        return Pipeline([("preprocessor", make_preprocessor(frame)), ("model", estimator)])
+        return Pipeline([
+            ("preprocessor", make_preprocessor(frame, self.preprocessing)),
+            ("model", estimator),
+        ])
 
     def _fit_supervised(self, frame, task):
         if self.target not in frame.columns:
@@ -229,7 +240,7 @@ class AutoDataMining:
     def _fit_clustering(self, frame):
         X = frame
         names = self._selected_names("clustering")
-        preprocessor = make_preprocessor(X)
+        preprocessor = make_preprocessor(X, self.preprocessing)
         transformed = preprocessor.fit_transform(X)
         rows, fitted = [], {}
         for name in names:
@@ -360,13 +371,16 @@ class AutoDataMining:
                     self.config.random_state, self._params(name)
                 )
                 if y_true is not None:
-                    pipeline = Pipeline([("preprocessor", make_preprocessor(X_train)), ("model", estimator)])
+                    pipeline = Pipeline([
+                        ("preprocessor", make_preprocessor(X_train, self.preprocessing)),
+                        ("model", estimator),
+                    ])
                     pipeline.fit(X_train)
                     labels = pipeline.predict(X_test)
                     score_method = getattr(pipeline, "decision_function", None)
                     scores = -np.asarray(score_method(X_test)) if score_method is not None else None
                 else:
-                    preprocessor = make_preprocessor(X)
+                    preprocessor = make_preprocessor(X, self.preprocessing)
                     transformed = preprocessor.fit_transform(X)
                     if name.lower() == "lof" and estimator.get_params(deep=False).get("novelty", False):
                         estimator.fit(transformed)
@@ -455,9 +469,35 @@ class AutoDataMining:
             "train_rows": int(train_rows),
             "test_rows": int(test_rows),
             "feature_columns": [str(column) for column in X.columns],
+            "preprocessing": self._preprocessing_metadata(),
             "sklearn_version": sklearn.__version__,
             "numpy_version": np.__version__,
             "pandas_version": pd.__version__,
             "python_version": platform.python_version(),
             "autodatamining_version": __version__,
+        }
+
+    def _preprocessing_metadata(self):
+        config = self.preprocessing
+        if config is None:
+            return {"mode": "default"}
+        if isinstance(config, dict):
+            options = {}
+            for name, value in config.items():
+                if name.endswith("transformer") and value is not None:
+                    options[name] = self._transformer_metadata(value)
+                elif isinstance(value, (str, int, float, bool, type(None))):
+                    options[name] = value
+                else:
+                    options[name] = repr(value)
+            return {"mode": "strategies", "options": options}
+        return {"mode": "custom_transformer", **self._transformer_metadata(config)}
+
+    @staticmethod
+    def _transformer_metadata(transformer):
+        cls = type(transformer)
+        parameters = transformer.get_params(deep=False) if hasattr(transformer, "get_params") else {}
+        return {
+            "class": f"{cls.__module__}.{cls.__qualname__}",
+            "parameters": {name: repr(value) for name, value in parameters.items()},
         }

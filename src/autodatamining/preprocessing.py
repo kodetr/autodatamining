@@ -1,6 +1,7 @@
 """Leakage-safe preprocessing and feature transformation helpers."""
 
 import numpy as np
+from sklearn.base import clone
 from sklearn.compose import ColumnTransformer
 from sklearn.decomposition import PCA, TruncatedSVD
 from sklearn.feature_selection import (
@@ -11,32 +12,140 @@ from sklearn.feature_selection import (
 )
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.preprocessing import (
+    MinMaxScaler,
+    OneHotEncoder,
+    OrdinalEncoder,
+    RobustScaler,
+    StandardScaler,
+)
 
 from .detection import as_frame
 from .exceptions import DataValidationError
 
 
-def make_preprocessor(frame):
-    """Build a sklearn transformer; it is fitted only inside each training pipeline."""
+def make_preprocessor(frame, config=None):
+    """Build a configurable sklearn transformer without fitting it.
+
+    ``config`` may be a strategy dictionary or any cloneable sklearn transformer. Dictionary
+    options are ``numeric_imputer``, ``numeric_fill_value``, ``numeric_scaler``,
+    ``categorical_imputer``, ``categorical_fill_value``, ``categorical_encoder``,
+    ``numeric_transformer``, and ``categorical_transformer``. Custom transformers replace the
+    corresponding default pipeline. The returned transformer is fitted inside each training fold.
+    """
+    if config is not None and not isinstance(config, dict):
+        if not hasattr(config, "fit") or not hasattr(config, "transform"):
+            raise DataValidationError("preprocessing must be a strategy dictionary or sklearn transformer")
+        try:
+            return clone(config)
+        except (TypeError, RuntimeError) as exc:
+            raise DataValidationError("custom preprocessing transformer must be sklearn-cloneable") from exc
+
+    settings = dict(config or {})
+    allowed = {
+        "numeric_imputer", "numeric_fill_value", "numeric_scaler",
+        "categorical_imputer", "categorical_fill_value", "categorical_encoder",
+        "numeric_transformer", "categorical_transformer",
+    }
+    unknown = sorted(set(settings) - allowed)
+    if unknown:
+        raise DataValidationError(f"unknown preprocessing option(s): {', '.join(unknown)}")
     numeric = frame.select_dtypes(include=[np.number]).columns.tolist()
     categorical = [c for c in frame.columns if c not in numeric]
     transformers = []
     if numeric:
-        numeric_pipe = Pipeline([
-            ("imputer", SimpleImputer(strategy="median")),
-            ("scaler", StandardScaler()),
-        ])
+        custom_numeric = settings.get("numeric_transformer")
+        if custom_numeric is not None:
+            if any(key in settings for key in ("numeric_imputer", "numeric_fill_value", "numeric_scaler")):
+                raise DataValidationError(
+                    "numeric_transformer cannot be combined with numeric imputer/scaler options"
+                )
+            try:
+                numeric_pipe = clone(custom_numeric)
+            except (TypeError, RuntimeError) as exc:
+                raise DataValidationError("numeric_transformer must be sklearn-cloneable") from exc
+        else:
+            imputer = settings.get("numeric_imputer", "median")
+            if not isinstance(imputer, str) or imputer not in {
+                "mean", "median", "most_frequent", "constant"
+            }:
+                raise DataValidationError(
+                    "numeric_imputer must be 'mean', 'median', 'most_frequent', or 'constant'"
+                )
+            numeric_steps = [("imputer", SimpleImputer(
+                strategy=imputer, fill_value=settings.get("numeric_fill_value", 0)
+            ))]
+            scaler = settings.get("numeric_scaler", "standard")
+            scaler_factories = {
+                "standard": StandardScaler,
+                "minmax": MinMaxScaler,
+                "robust": RobustScaler,
+                None: None,
+                "none": None,
+            }
+            if scaler is not None and not isinstance(scaler, str):
+                raise DataValidationError(
+                    "numeric_scaler must be 'standard', 'minmax', 'robust', or None"
+                )
+            if scaler not in scaler_factories:
+                raise DataValidationError("numeric_scaler must be 'standard', 'minmax', 'robust', or None")
+            scaler_factory = scaler_factories[scaler]
+            if scaler_factory is not None:
+                numeric_steps.append(("scaler", scaler_factory()))
+            numeric_pipe = Pipeline(numeric_steps)
         transformers.append(("numeric", numeric_pipe, numeric))
     if categorical:
-        categorical_pipe = Pipeline([
-            ("imputer", SimpleImputer(strategy="most_frequent")),
-            ("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=False)),
-        ])
+        custom_categorical = settings.get("categorical_transformer")
+        if custom_categorical is not None:
+            if any(key in settings for key in (
+                "categorical_imputer", "categorical_fill_value", "categorical_encoder"
+            )):
+                raise DataValidationError(
+                    "categorical_transformer cannot be combined with categorical imputer/encoder options"
+                )
+            try:
+                categorical_pipe = clone(custom_categorical)
+            except (TypeError, RuntimeError) as exc:
+                raise DataValidationError("categorical_transformer must be sklearn-cloneable") from exc
+        else:
+            imputer = settings.get("categorical_imputer", "most_frequent")
+            if not isinstance(imputer, str) or imputer not in {"most_frequent", "constant"}:
+                raise DataValidationError("categorical_imputer must be 'most_frequent' or 'constant'")
+            encoder = settings.get("categorical_encoder", "onehot")
+            if not isinstance(encoder, str):
+                raise DataValidationError("categorical_encoder must be 'onehot' or 'ordinal'")
+            if encoder == "onehot":
+                encoder_transformer = OneHotEncoder(handle_unknown="ignore", sparse_output=False)
+            elif encoder == "ordinal":
+                encoder_transformer = OrdinalEncoder(
+                    handle_unknown="use_encoded_value", unknown_value=-1
+                )
+            else:
+                raise DataValidationError("categorical_encoder must be 'onehot' or 'ordinal'")
+            categorical_pipe = Pipeline([
+                ("imputer", SimpleImputer(
+                    strategy=imputer, fill_value=settings.get("categorical_fill_value", "missing")
+                )),
+                ("encoder", encoder_transformer),
+            ])
         transformers.append(("categorical", categorical_pipe, categorical))
     if not transformers:
         raise DataValidationError("no usable feature columns were found")
     return ColumnTransformer(transformers, remainder="drop", verbose_feature_names_out=False)
+
+
+def plot_preprocessing(data, kind="overview", target=None, max_features=8, show=False, figsize=None):
+    """Plot preprocessing diagnostics and return ``(figure, axes)``.
+
+    ``kind`` supports ``overview``, ``missing_heatmap``, ``heatmap`` (correlation when
+    numeric, missingness otherwise), ``correlation``, ``distributions``, ``outliers``,
+    and ``target``. Matplotlib is an optional dependency.
+    """
+    from .preprocessing_visualization import plot_preprocessing as _plot_preprocessing
+
+    return _plot_preprocessing(
+        data, kind=kind, target=target, max_features=max_features, show=show, figsize=figsize
+    )
 
 
 def select_features(X, y=None, method="variance", k=10, task="classification"):

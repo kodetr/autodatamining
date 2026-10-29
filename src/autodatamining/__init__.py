@@ -10,7 +10,7 @@ from .exceptions import (
     NoModelsSucceededError,
 )
 from .persistence import load_model
-from .preprocessing import reduce_dimensions, select_features
+from .preprocessing import plot_preprocessing, reduce_dimensions, select_features
 from .registry import EstimatorRegistry, register_estimator
 from .results import MiningResults, ValidatedModel
 from .version import __version__
@@ -28,6 +28,7 @@ __all__ = [
     "__version__",
     "detect_task",
     "load_model",
+    "plot_preprocessing",
     "profile_data",
     "reduce_dimensions",
     "register_estimator",
