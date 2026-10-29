@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "autodatamining"
-version = "0.2.0"
+version = "0.2.1"
 description = "A consistent, transparent scikit-learn based data mining workflow."
 readme = "README.md"
 requires-python = ">=3.9"
