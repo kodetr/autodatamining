@@ -2,7 +2,7 @@
 
 **AutoDataMining** is a Python library for running consistent, inspectable data mining experiments with scikit-learn. It brings preprocessing, model comparison, evaluation, simple explanations, reports, and model persistence behind one API. It integrates existing estimators; it does not introduce new machine learning algorithms.
 
-> **Status: alpha (0.1.1, unreleased).** The public API may change. Benchmark results depend on the dataset, split, metric, and estimator settings, and are not a guarantee of future performance. Review results before using a model in a consequential setting.
+> **Status: alpha (0.1.1).** The public API may change. Benchmark results depend on the dataset, split, metric, and estimator settings, and are not a guarantee of future performance. Review results before using a model in a consequential setting.
 
 ## Installation
 
@@ -15,6 +15,68 @@ For plots and optional SHAP explanations:
 ```bash
 python -m pip install "autodatamining[visualization,explainability]"
 ```
+
+## Cara Penggunaan
+
+Contoh berikut membaca file CSV, memeriksa data lewat grafik, lalu membandingkan model klasifikasi.
+Kolom target pada contoh ini bernama `label`.
+
+Untuk panduan pemula lengkap dengan contoh classification, regression, clustering, dan anomaly
+detection, lihat [Panduan Mudah Menggunakan AutoDataMining](docs/panduan-penggunaan.md).
+
+```python
+import pandas as pd
+from autodatamining import AutoDataMining
+
+data = pd.read_csv("dataset.csv")
+
+# Grafik diagnostik sebelum training (memerlukan extra visualization).
+fig, axes = AutoDataMining.plot_preprocessing(
+    data, kind="overview", target="label",
+)
+fig.savefig("preprocessing-overview.png", dpi=150, bbox_inches="tight")
+
+# Pengaturan preprocessing ini opsional; tanpa parameter ini library memakai default.
+preprocessing = {
+    "numeric_imputer": "median",
+    "numeric_scaler": "robust",
+    "categorical_imputer": "most_frequent",
+    "categorical_encoder": "onehot",
+}
+
+results = AutoDataMining(
+    task="classification",
+    target="label",
+    models=["logistic_regression", "random_forest"],
+    test_size=0.2,
+    cv=5,
+    random_state=42,
+    preprocessing=preprocessing,
+).fit(data)
+
+print(results.leaderboard)  # perbandingan model dan skor cross-validation
+print(results.metrics)      # metrik holdout untuk model terpilih
+predictions = results.predict(data.drop(columns=["label"]))
+
+results.plot(kind="confusion_matrix")
+results.report("laporan.html")
+results.save("model.joblib")
+```
+
+Untuk memuat model yang disimpan dan memprediksi data baru:
+
+```python
+from autodatamining import load_model
+
+model = load_model("model.joblib")
+new_data = pd.read_csv("data-baru.csv")
+predictions = model.predict(new_data)
+```
+
+`task` yang tersedia adalah `classification`, `regression`, `clustering`, dan `anomaly`.
+Classification dan regression memerlukan `target`; clustering dan anomaly biasanya menggunakan
+fitur tanpa target. Untuk plot diagnostik lain, gunakan `kind="missing_heatmap"`, `"correlation"`,
+`"distributions"`, `"outliers"`, atau `"target"`. Detail opsi ada di bagian preprocessing di bawah.
 
 ## Quick start: classification
 
@@ -242,8 +304,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) and [CHANGELOG.md](CHANGELOG.md). Contrib
 5. Publish to PyPI using an API token held outside the source tree or trusted publishing.
 6. Verify the published install and create a version tag.
 
-Version 0.1.0 was published to PyPI. Version 0.1.1 is a local unreleased update and has not been uploaded. Check the project owner, metadata, and release configuration again before publishing another version. No credentials belong in the repository.
+Version 0.1.0 was previously published to PyPI. This source tree targets version 0.1.1; follow the release checklist above to build and publish it. No credentials belong in the repository.
 
 ## License
 
-MIT; see [LICENSE](LICENSE). Review ownership and attribution before the first release.
+MIT; see [LICENSE](LICENSE). Review ownership and attribution when preparing a release.
