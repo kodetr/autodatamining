@@ -357,7 +357,10 @@ with tab_viz:
                 st.write("**Matriks Kebingungan (Confusion Matrix):**")
                 fig_cm, ax_cm = plt.subplots(figsize=(5.5, 4.2))
                 try:
-                    results.plot(kind="confusion_matrix", ax=ax_cm, model_name=selected_model)
+                    try:
+                        results.plot(kind="confusion_matrix", ax=ax_cm, model_name=selected_model)
+                    except TypeError:
+                        results.plot(kind="confusion_matrix", ax=ax_cm)
                     st.pyplot(fig_cm)
                 except Exception as e:
                     st.warning(f"Tidak dapat menggambar matriks kebingungan: {e}")
@@ -369,13 +372,19 @@ with tab_viz:
                 st.write("**Kurva ROC (Receiver Operating Characteristic):**")
                 fig_roc, ax_roc = plt.subplots(figsize=(5.5, 4.2))
                 try:
-                    results.plot(kind="roc_curve", ax=ax_roc, model_name=selected_model)
+                    try:
+                        results.plot(kind="roc_curve", ax=ax_roc, model_name=selected_model)
+                    except TypeError:
+                        results.plot(kind="roc_curve", ax=ax_roc)
                     st.pyplot(fig_roc)
                 except Exception:
-                    # Fallback jika multi-class: tampilkan grafik batang leaderboard
+                    # Fallback jika multi-class atau ROC belum tersedia
                     st.write("**Perbandingan Akurasi/F1 Semua Model:**")
-                    results.plot(kind="leaderboard", ax=ax_roc)
-                    st.pyplot(fig_roc)
+                    try:
+                        results.plot(kind="leaderboard", ax=ax_roc)
+                        st.pyplot(fig_roc)
+                    except Exception:
+                        pass
                 finally:
                     plt.close(fig_roc)
                 st.info("💡 **Cara Membaca:** Garis kurva yang semakin mendekati sudut kiri-atas menunjukkan kemampuan model yang semakin sempurna dalam membedakan kelas.")
@@ -387,7 +396,10 @@ with tab_viz:
                 st.write("**Plot Residual (Sebaran Galat Error):**")
                 fig_res, ax_res = plt.subplots(figsize=(5.5, 4.2))
                 try:
-                    results.plot(kind="residuals", ax=ax_res, model_name=selected_model)
+                    try:
+                        results.plot(kind="residuals", ax=ax_res, model_name=selected_model)
+                    except TypeError:
+                        results.plot(kind="residuals", ax=ax_res)
                     st.pyplot(fig_res)
                 except Exception as e:
                     st.warning(f"Gagal menggambar residual: {e}")
@@ -399,7 +411,25 @@ with tab_viz:
                 st.write("**Scatter Plot Nilai Aktual vs Prediksi:**")
                 fig_avp, ax_avp = plt.subplots(figsize=(5.5, 4.2))
                 try:
-                    results.plot(kind="actual_vs_predicted", ax=ax_avp, model_name=selected_model)
+                    try:
+                        results.plot(kind="actual_vs_predicted", ax=ax_avp, model_name=selected_model)
+                    except (ValueError, TypeError):
+                        # Fallback jika actual_vs_predicted belum ada di versi terinstal
+                        if hasattr(results, "X_test") and hasattr(results, "y_test") and results.X_test is not None:
+                            model_obj = getattr(results, "model", None)
+                            if hasattr(results, "fitted_models") and results.fitted_models and selected_model in results.fitted_models:
+                                model_obj = results.fitted_models[selected_model]
+                            if model_obj is not None:
+                                y_pred = model_obj.predict(results.X_test)
+                                ax_avp.scatter(results.y_test, y_pred, alpha=0.7, color="#2563EB", edgecolors="k", s=40)
+                                min_v = min(float(results.y_test.min()), float(y_pred.min()))
+                                max_v = max(float(results.y_test.max()), float(y_pred.max()))
+                                ax_avp.plot([min_v, max_v], [min_v, max_v], "r--", linewidth=2, label="Ideal (y=x)")
+                                ax_avp.set_title(f"Aktual vs Prediksi - {selected_model.upper()}")
+                                ax_avp.set_xlabel("Nilai Aktual")
+                                ax_avp.set_ylabel("Nilai Prediksi")
+                                ax_avp.legend()
+                                ax_avp.grid(True, linestyle=":", alpha=0.6)
                     st.pyplot(fig_avp)
                 except Exception as e:
                     st.warning(f"Gagal menggambar scatter prediksi: {e}")
