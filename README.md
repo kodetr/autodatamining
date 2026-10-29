@@ -1,42 +1,68 @@
 # AutoDataMining
 
-**AutoDataMining** is a Python library for running consistent, inspectable data mining experiments with scikit-learn. It brings preprocessing, model comparison, evaluation, simple explanations, reports, and model persistence behind one API. It integrates existing estimators; it does not introduce new machine learning algorithms.
+## Deskripsi
 
-> **Status: alpha (0.1.1).** The public API may change. Benchmark results depend on the dataset, split, metric, and estimator settings, and are not a guarantee of future performance. Review results before using a model in a consequential setting.
+**AutoDataMining** adalah pustaka Python untuk membantu menjalankan alur kerja data mining pada data berbentuk tabel dengan scikit-learn. Pustaka ini menyatukan prapemrosesan, perbandingan model, evaluasi, visualisasi, laporan, dan penyimpanan model dalam satu antarmuka.
 
-## Installation
+Dengan AutoDataMining, pengguna dapat memilih jenis tugas, menentukan kolom target bila diperlukan, membandingkan beberapa estimator, melihat metrik evaluasi, lalu menyimpan pipeline yang mencakup prapemrosesan dan model.
 
-```bash
+AutoDataMining mengintegrasikan algoritma yang tersedia di scikit-learn dan tidak menciptakan algoritma machine learning baru. Termasuk di dalamnya teknik ensemble seperti voting dan stacking untuk menggabungkan prediksi beberapa model. Hasil bergantung pada dataset, cara pembagian data, metrik, dan parameter yang digunakan; skor tinggi pada satu percobaan bukan jaminan performa yang sama pada data lain.
+
+> **Status: Alpha, versi pengembangan 0.1.2.** Versi 0.1.1 tersedia di PyPI; perubahan pada source ini belum dirilis. API masih dapat berubah.
+
+## Fitur utama
+
+- Klasifikasi dan regresi dengan pemisahan data pelatihan dan data uji.
+- Pengelompokan data (clustering) dan deteksi anomali.
+- Prapemrosesan numerik dan kategorikal yang dapat dikonfigurasi.
+- Perbandingan model scikit-learn (estimator) melalui tabel peringkat.
+- Ensemble bawaan dengan voting dan stacking untuk klasifikasi serta regresi.
+- Validasi silang pada data pelatihan dan metrik data uji yang dilaporkan terpisah.
+- Profil data, grafik diagnostik, penjelasan model dasar, dan laporan HTML.
+- Penyimpanan pipeline lengkap agar prapemrosesan yang sama digunakan saat prediksi.
+- Pendaftaran estimator kustom.
+
+## Instalasi
+
+Instalasi standar:
+
+~~~bash
 python -m pip install autodatamining
-```
+~~~
 
-For plots and optional SHAP explanations:
+Untuk memakai grafik dan visualisasi hasil:
 
-```bash
-python -m pip install "autodatamining[visualization,explainability]"
-```
+~~~bash
+python -m pip install "autodatamining[visualization]"
+~~~
 
-## Cara Penggunaan
+Untuk fitur SHAP opsional:
 
-Contoh berikut membaca file CSV, memeriksa data lewat grafik, lalu membandingkan model klasifikasi.
-Kolom target pada contoh ini bernama `label`.
+~~~bash
+python -m pip install "autodatamining[explainability]"
+~~~
 
-Untuk panduan pemula lengkap dengan contoh classification, regression, clustering, dan anomaly
-detection, lihat [Panduan Mudah Menggunakan AutoDataMining](docs/panduan-penggunaan.md).
+## Cara penggunaan
 
-```python
+Contoh berikut membaca data CSV, memeriksa ringkasan data, melihat grafik diagnostik, lalu membandingkan model klasifikasi (classification). Ganti nama file dan kolom target sesuai dataset Anda.
+
+~~~python
 import pandas as pd
 from autodatamining import AutoDataMining
 
 data = pd.read_csv("dataset.csv")
 
-# Grafik diagnostik sebelum training (memerlukan extra visualization).
-fig, axes = AutoDataMining.plot_preprocessing(
-    data, kind="overview", target="label",
-)
-fig.savefig("preprocessing-overview.png", dpi=150, bbox_inches="tight")
+# Periksa jumlah baris/kolom, tipe data, nilai kosong, dan target.
+profile = AutoDataMining.profile(data, target="label")
+print(profile["potential_issues"])
 
-# Pengaturan preprocessing ini opsional; tanpa parameter ini library memakai default.
+# Grafik diagnostik sebelum pelatihan. Perlu extra visualization.
+fig, axes = AutoDataMining.plot_preprocessing(
+    data, kind="overview", target="label"
+)
+fig.savefig("ringkasan-data.png", dpi=150, bbox_inches="tight")
+
+# Konfigurasi ini opsional. Pengaturan bawaan akan dipakai bila tidak diberikan.
 preprocessing = {
     "numeric_imputer": "median",
     "numeric_scaler": "robust",
@@ -51,261 +77,293 @@ results = AutoDataMining(
     test_size=0.2,
     cv=5,
     random_state=42,
+    scoring="f1_weighted",
     preprocessing=preprocessing,
 ).fit(data)
 
-print(results.leaderboard)  # perbandingan model dan skor cross-validation
-print(results.metrics)      # metrik holdout untuk model terpilih
-predictions = results.predict(data.drop(columns=["label"]))
+print(results.leaderboard)  # Peringkat model dan skor validasi silang
+print(results.metrics)      # Metrik data uji untuk model terpilih
+print(results.classification_report())
 
-results.plot(kind="confusion_matrix")
+results.plot(kind="confusion_matrix", show=True)
 results.report("laporan.html")
+results.to_csv("leaderboard.csv")
 results.save("model.joblib")
-```
+~~~
 
-Untuk memuat model yang disimpan dan memprediksi data baru:
+Untuk memprediksi data baru, kolom fiturnya harus sama dengan data training. Urutan kolom boleh berbeda.
 
-```python
+~~~python
+import pandas as pd
 from autodatamining import load_model
 
 model = load_model("model.joblib")
-new_data = pd.read_csv("data-baru.csv")
-predictions = model.predict(new_data)
-```
+data_baru = pd.read_csv("data-baru.csv")
+prediksi = model.predict(data_baru)
+print(prediksi)
+~~~
 
-`task` yang tersedia adalah `classification`, `regression`, `clustering`, dan `anomaly`.
-Classification dan regression memerlukan `target`; clustering dan anomaly biasanya menggunakan
-fitur tanpa target. Untuk plot diagnostik lain, gunakan `kind="missing_heatmap"`, `"correlation"`,
-`"distributions"`, `"outliers"`, atau `"target"`. Detail opsi ada di bagian preprocessing di bawah.
+Untuk panduan pemula dengan contoh lengkap yang dapat dijalankan untuk semua jenis tugas, buka [Panduan Mudah Menggunakan AutoDataMining](docs/panduan-penggunaan.md).
 
-## Quick start: classification
+## Jenis tugas
 
-```python
-import pandas as pd
-from autodatamining import AutoDataMining
+| Tugas | Kapan digunakan | Perlu target? |
+| --- | --- | --- |
+| Klasifikasi (classification) | Memprediksi kelas/kategori, misalnya status pelanggan | Ya |
+| Regresi (regression) | Memprediksi nilai kontinu, misalnya harga | Ya |
+| Pengelompokan (clustering) | Mengelompokkan data tanpa label kelas | Tidak |
+| Anomali (anomaly) | Menemukan observasi yang tidak biasa | Tidak; label opsional untuk evaluasi |
 
-data = pd.read_csv("dataset.csv")
+Tentukan jenis tugas secara eksplisit bila tujuan analisis sudah diketahui. Mode otomatis hanya memilih klasifikasi atau regresi dari kolom target dan tidak akan memulai pengelompokan secara diam-diam.
+
+## Contoh tugas lainnya
+
+### Regresi
+
+~~~python
+results = AutoDataMining(
+    task="regression",
+    target="price",
+    models=["ridge", "random_forest", "hist_gradient_boosting"],
+    cv=5,
+    random_state=42,
+).fit(data)
+
+print(results.leaderboard[["model", "cv_score", "mae", "rmse", "r2", "status"]])
+results.plot(kind="residuals", show=True)
+~~~
+
+### Pengelompokan data
+
+~~~python
+results = AutoDataMining(
+    task="clustering",
+    models=["kmeans", "dbscan", "agglomerative"],
+    random_state=42,
+).fit(features)
+
+print(results.leaderboard)
+print(results.labels)  # Label cluster untuk setiap baris
+results.plot(kind="clusters", show=True)
+~~~
+
+Silhouette, Davies–Bouldin, dan Calinski–Harabasz adalah metrik internal pengelompokan, bukan ukuran akurasi terhadap kelas yang diketahui. Pada DBSCAN, label -1 menunjukkan data noise.
+
+### Deteksi anomali
+
+~~~python
+results = AutoDataMining(
+    task="anomaly",
+    models=["isolation_forest", "lof"],
+    random_state=42,
+).fit(features)
+
+print(results.leaderboard)  # anomaly_count dan anomaly_rate
+print(results.labels)       # -1 = anomali, +1 = data normal
+results.plot(kind="anomalies", show=True)
+~~~
+
+Tanpa label acuan (ground truth), jumlah atau persentase anomali yang ditemukan tidak dapat digunakan untuk menentukan kualitas model. Jika label tersedia, berikan nama kolomnya melalui target dan gunakan 1/True untuk anomali serta 0/False untuk data normal. Dalam mode berlabel, prediksi yang dikembalikan adalah prediksi pada data uji.
+
+## Menggabungkan model dengan ensemble
+
+Pilih model gabungan langsung melalui parameter models. Tidak perlu mengimpor VotingClassifier atau StackingClassifier dari scikit-learn.
+
+~~~python
 results = AutoDataMining(
     task="classification",
     target="label",
-    test_size=0.2,
+    models=["voting", "stacking"],
     cv=5,
     random_state=42,
-    scoring="f1_weighted",
-    models=["logistic_regression", "random_forest"],
 ).fit(data)
 
 print(results.leaderboard)
 print(results.best_model)
-print(results.metrics)  # holdout metrics, plus CV score and fit time
-results.plot()
-results.report("classification-report.html")
-results.save("best-model.joblib")
-```
+~~~
 
-`leaderboard.cv_score` is calculated only on training folds. Other task metrics such as `accuracy`, `f1_weighted`, and `roc_auc` are holdout test values. The holdout is not used for selection when valid cross-validation scores exist.
+Untuk klasifikasi, voting menggabungkan probabilitas prediksi (soft voting), sedangkan stacking melatih model akhir untuk mempelajari cara menggabungkan prediksi model dasar. Untuk regresi, nama voting dan stacking menggunakan VotingRegressor dan StackingRegressor. Keduanya dievaluasi sebagai kandidat model; AutoDataMining memilih hasil terbaik berdasarkan skor validasi silang.
 
-## Other tasks
+## Algoritma dan metrik
 
-### Regression
-
-```python
-results = AutoDataMining(
-    task="regression", target="price", cv=5, random_state=42,
-    models=["ridge", "random_forest", "hist_gradient_boosting"],
-).fit(data)
-print(results.leaderboard[["model", "cv_score", "mae", "rmse", "r2", "status"]])
-```
-
-### Clustering
-
-```python
-results = AutoDataMining(
-    task="clustering", models=["kmeans", "dbscan", "agglomerative"], random_state=42,
-).fit(features)
-print(results.leaderboard)
-print(results.labels)  # labels from the selected model
-```
-
-The selected clustering model is ranked by silhouette score when that score is defined. Silhouette, Davies–Bouldin, and Calinski–Harabasz are internal measures, not accuracy against known classes. DBSCAN noise points have label `-1`.
-
-### Anomaly detection
-
-```python
-results = AutoDataMining(
-    task="anomaly", models=["isolation_forest", "lof"], random_state=42,
-).fit(features)
-print(results.leaderboard)  # anomaly_rate and anomaly_count
-print(results.labels)  # -1 is an anomaly; +1 is an inlier
-```
-
-Without ground-truth labels, anomaly rate describes how many rows were flagged; it cannot rank model quality. If labels are available, pass their column as `target` and encode anomalies as `1`/`True` and normal rows as `0`/`False`. The runner excludes that target from the features, selects using stratified training-fold F1, and reports holdout precision, recall, F1, and AUC where defined. In labeled mode, `results.labels` contains selected-model holdout predictions; without labels, it contains fit-set detections.
-
-## Algorithms and metrics
-
-| Task | Built-in estimators | Default comparison score |
+| Tugas | Estimator bawaan | Skor perbandingan bawaan |
 | --- | --- | --- |
-| Classification | Logistic Regression, Decision Tree, Random Forest, Extra Trees, Gradient Boosting, HistGradientBoosting, KNN, Gaussian Naive Bayes, SVM | Accuracy (training CV) |
-| Regression | Linear Regression, Ridge, Lasso, Decision Tree, Random Forest, Extra Trees, Gradient Boosting, HistGradientBoosting, KNN, SVR | R² (training CV) |
-| Clustering | K-Means, MiniBatch K-Means, DBSCAN, Agglomerative, Gaussian Mixture | Silhouette |
-| Anomaly | Isolation Forest, Local Outlier Factor, One-Class SVM | Labeled F1 when labels are supplied; otherwise no quality ranking |
+| Klasifikasi | Logistic Regression, Decision Tree, Random Forest, Extra Trees, Gradient Boosting, HistGradientBoosting, KNN, Gaussian Naive Bayes, SVM, voting, stacking | Accuracy pada validasi silang data pelatihan |
+| Regresi | Linear Regression, Ridge, Lasso, Decision Tree, Random Forest, Extra Trees, Gradient Boosting, HistGradientBoosting, KNN, SVR, voting, stacking | R² pada validasi silang data pelatihan |
+| Pengelompokan | K-Means, MiniBatch K-Means, DBSCAN, Agglomerative, Gaussian Mixture | Silhouette |
+| Anomali | Isolation Forest, Local Outlier Factor, One-Class SVM | F1 validasi silang jika label tersedia; tanpa label tidak ada peringkat kualitas |
 
-Classification holdout metrics include accuracy, balanced accuracy, weighted precision/recall/F1, and ROC-AUC / PR-AUC when the estimator and test labels support them. Regression reports MAE, MSE, RMSE, and R². Clustering reports silhouette, Davies–Bouldin, and Calinski–Harabasz when defined. Individual estimator failures are recorded in the leaderboard; successful models remain usable.
+Metrik klasifikasi pada data uji mencakup accuracy, balanced accuracy, precision, recall, dan F1 berbobot. ROC-AUC dan PR-AUC ditampilkan bila model dan data mendukungnya. Regresi melaporkan MAE, MSE, RMSE, dan R². Metrik pengelompokan hanya ditampilkan bila dapat dihitung.
 
-## Automatic task detection and data profile
+Jika satu estimator gagal, status dan pesan kesalahannya dicatat di tabel peringkat; model lain tetap dapat digunakan.
 
-`task="auto"` requires a target column. Text-like targets are treated as classification; small-cardinality integer targets are treated as classification; other numeric targets are treated as regression. Ambiguous low-cardinality numeric targets emit a warning. Pass `task` explicitly when the heuristic is not appropriate. Auto mode never silently launches clustering.
+## Profil data dan deteksi tugas
 
-```python
-from autodatamining import AutoDataMining
+Profil data membantu melihat ukuran dataset, tipe kolom, nilai kosong, jumlah nilai unik, duplikasi baris, dan ringkasan target.
 
+~~~python
 profile = AutoDataMining.profile(data, target="label")
+print(profile["column_details"])
 print(profile["potential_issues"])
-```
+~~~
 
-The profile includes row and column counts, per-column type, missing count and cardinality, duplicate rows, and a target distribution. It does not diagnose leakage or establish that a metric is suitable for a research question.
+Dengan deteksi otomatis, target teks diperlakukan sebagai klasifikasi. Target integer dengan jumlah kelas rendah juga dapat dianggap sebagai klasifikasi; target numerik lainnya biasanya dianggap regresi. Jika interpretasi target numerik tidak jelas, tetapkan jenis tugas secara eksplisit.
 
-## Advanced usage
+## Prapemrosesan yang fleksibel
 
-### Custom estimators
+Pengaturan prapemrosesan bawaan:
 
-```python
+- Kolom numerik: imputasi median dan StandardScaler.
+- Kolom kategorikal: imputasi nilai paling sering dan OneHotEncoder.
+
+Ubah strategi per eksperimen:
+
+~~~python
+preprocessing = {
+    "numeric_imputer": "median",        # mean, median, most_frequent, constant
+    "numeric_fill_value": 0,             # digunakan jika imputer constant
+    "numeric_scaler": "robust",          # standard, minmax, robust, none
+    "categorical_imputer": "constant",   # most_frequent atau constant
+    "categorical_fill_value": "unknown",
+    "categorical_encoder": "ordinal",   # onehot atau ordinal
+}
+
+results = AutoDataMining(
+    task="classification",
+    target="label",
+    preprocessing=preprocessing,
+).fit(data)
+~~~
+
+Prapemrosesan dipelajari di dalam pipeline pelatihan dan setiap fold validasi silang, sehingga statistik imputasi dan scaling tidak mengambil informasi dari fold validasi atau data uji.
+
+Pengguna lanjutan dapat memberikan transformer scikit-learn yang bisa di-clone melalui parameter preprocessing untuk mengganti seluruh preprocessing bawaan. Transformer numerik atau kategorikal juga dapat diganti secara terpisah melalui opsi numeric_transformer atau categorical_transformer. Baca [panduan preprocessing](docs/preprocessing.md) untuk contoh lengkap.
+
+## Grafik diagnostik
+
+Grafik diagnostik memeriksa data masukan sebelum transformasi dan tidak mengubah model.
+
+~~~python
+fig, axes = AutoDataMining.plot_preprocessing(
+    data, kind="overview", target="label"
+)
+fig.savefig("overview.png", dpi=150, bbox_inches="tight")
+
+fig, ax = AutoDataMining.plot_preprocessing(
+    data, kind="correlation", target="label"
+)
+fig.savefig("correlation.png", dpi=150, bbox_inches="tight")
+~~~
+
+Pilihan grafik meliputi ringkasan, heatmap nilai kosong, heatmap korelasi, distribusi fitur, boxplot untuk melihat outlier potensial, dan distribusi target. Fungsi mengembalikan figure dan axes; simpan dengan savefig atau tampilkan dengan show=True. Lihat [panduan prapemrosesan](docs/preprocessing.md) untuk semua nama kind dan keterangannya. Grafik memerlukan extra visualization.
+
+## Explainability, laporan, dan visualisasi hasil
+
+~~~python
+importance = results.explain(method="auto")
+~~~
+
+Mode otomatis menggunakan feature importance bawaan model bila tersedia, atau permutation importance untuk tugas dengan label. SHAP memerlukan extra explainability. Feature importance menjelaskan perilaku model dan tidak membuktikan hubungan sebab-akibat. AutoDataMining tidak membuat feature importance untuk pengelompokan atau anomali tanpa dukungan model.
+
+Beberapa grafik hasil yang tersedia:
+
+~~~python
+results.plot(kind="leaderboard")
+results.plot(kind="confusion_matrix")          # Klasifikasi
+results.plot(kind="roc_curve")                 # Klasifikasi biner
+results.plot(kind="precision_recall_curve")    # Klasifikasi biner
+results.plot(kind="residuals")                 # Regresi
+results.plot(kind="clusters")                  # Pengelompokan
+results.plot(kind="anomalies")                 # Deteksi anomali
+~~~
+
+Laporan HTML memuat metadata eksperimen, metrik, tabel peringkat model, dan batasan evaluasi. Baris dataset tidak dimasukkan ke laporan.
+
+## Penyimpanan model
+
+~~~python
+results.save("model.joblib")
+~~~
+
+File yang disimpan berisi pipeline prapemrosesan dan model terpilih. Muat kembali dengan load_model, lalu gunakan predict pada data yang memiliki kolom fitur yang sesuai.
+
+File joblib/pickle dapat menjalankan kode saat dimuat. Muat hanya file dari sumber tepercaya. Kompatibilitas antarversi scikit-learn tidak dijamin.
+
+## Catatan evaluasi
+
+- Klasifikasi dan regresi menggunakan pembagian data pelatihan dan data uji; validasi silang untuk memilih model berjalan pada bagian pelatihan.
+- Prapemrosesan dilatih secara terpisah di setiap fold validasi silang.
+- Stratifikasi digunakan untuk klasifikasi bila jumlah data tiap kelas memungkinkan.
+- Skor validasi silang digunakan untuk memilih model jika tersedia. Metrik data uji dilaporkan terpisah dan sebaiknya tidak dipakai berulang kali untuk tuning.
+- Pengelompokan dan deteksi anomali tanpa label acuan tidak memiliki metrik akurasi terhadap kelas sebenarnya.
+- Pertimbangkan ketidakseimbangan kelas, kebocoran data, pembagian berdasarkan waktu/kelompok, kalibrasi, latensi, dan perubahan distribusi data.
+- Hasil satu eksperimen tidak menjamin performa yang sama pada dataset atau penggunaan lain.
+
+## Pemilihan estimator kustom
+
+Estimator tambahan dapat didaftarkan tanpa mengubah source code library.
+
+~~~python
 from sklearn.linear_model import SGDClassifier
 from autodatamining import AutoDataMining, EstimatorRegistry
 
 registry = EstimatorRegistry()
-registry.register("fast_sgd", SGDClassifier, tasks="classification",
-                  params={"max_iter": 2000, "tol": 1e-3})
+registry.register(
+    "fast_sgd",
+    SGDClassifier,
+    tasks="classification",
+    params={"max_iter": 2000, "tol": 1e-3},
+)
+
 results = AutoDataMining(
-    task="classification", target="label", registry=registry,
-    models=["fast_sgd"], cv=3,
+    task="classification",
+    target="label",
+    registry=registry,
+    models=["fast_sgd"],
+    cv=3,
 ).fit(data)
-```
+~~~
 
-Use unique names and register only estimators compatible with the declared task. Estimators are cloned before fitting. Model-specific parameters can be supplied with `model_params={"fast_sgd": {"alpha": 0.001}}`.
+Gunakan nama unik dan estimator yang kompatibel dengan task. Estimator akan di-clone sebelum dilatih. Parameter khusus model dapat diberikan melalui model_params.
 
-The module-level `register_estimator(name, estimator, tasks, params=None)` adds an estimator to the shared default registry for later runs.
+## Seleksi fitur dan reduksi dimensi
 
-### Feature selection and dimensionality reduction
-
-```python
+~~~python
 from autodatamining import select_features, reduce_dimensions
 
-selected, selector = select_features(numeric_features, y, method="mutual_information",
-                                     task="classification", k=5)
-embedding, pca = reduce_dimensions(numeric_features, method="pca", n_components=2)
-```
+selected, selector = select_features(
+    numeric_features,
+    y,
+    method="mutual_information",
+    task="classification",
+    k=5,
+)
+embedding, pca = reduce_dimensions(
+    numeric_features,
+    method="pca",
+    n_components=2,
+)
+~~~
 
-These convenience helpers fit directly to the data passed to them. For scientific evaluation, put selection or reduction inside a cross-validation `Pipeline` so each fold learns its transform from training data only.
+Fungsi ini melatih transformasi langsung pada data yang diberikan. Untuk evaluasi ilmiah, letakkan seleksi fitur atau reduksi dimensi dalam pipeline validasi silang agar setiap fold hanya mempelajari transformasi dari bagian pelatihan.
 
-### Flexible preprocessing and diagnostic plots
+## Pengembangan dan pengujian
 
-Preprocessing defaults to median imputation and standard scaling for numeric features, plus most-frequent imputation and one-hot encoding for categorical features. Override those choices per experiment:
-
-```python
-preprocessing = {
-    "numeric_imputer": "median",       # mean, median, most_frequent, constant
-    "numeric_scaler": "robust",        # standard, minmax, robust, none
-    "categorical_imputer": "constant", # most_frequent, constant
-    "categorical_fill_value": "unknown",
-    "categorical_encoder": "ordinal", # onehot, ordinal
-}
-results = AutoDataMining(
-    task="classification", target="label", preprocessing=preprocessing,
-).fit(data)
-```
-
-Advanced users can pass a cloneable scikit-learn transformer as `preprocessing=...` to replace the complete default transformer, or use `numeric_transformer` and `categorical_transformer` in the options dictionary to replace just one branch. The custom transformer is cloned and fitted inside each training fold. See [the preprocessing guide](docs/preprocessing.md) for examples and supported options.
-
-Inspect the raw input before fitting. The plots show missing-value counts and heatmaps, numeric correlation heatmaps, feature distributions, boxplots for potential outliers, and target distributions:
-
-```python
-fig, axes = AutoDataMining.plot_preprocessing(data, kind="overview", target="label")
-fig.savefig("preprocessing-overview.png", dpi=150, bbox_inches="tight")
-
-fig, ax = AutoDataMining.plot_preprocessing(data, kind="correlation", target="label")
-fig.savefig("correlations.png", dpi=150, bbox_inches="tight")
-```
-
-`plot_preprocessing(data, kind=...)` is also available at package level. Supported kinds are `overview`, `missing_heatmap`, `heatmap`, `correlation`, `distributions`, `outliers`, and `target`. Plots need `autodatamining[visualization]`; functions return `(figure, axes)` and display only when `show=True`. These are exploratory diagnostics of the data passed in, not plots of a fitted transformation.
-
-### Explainability
-
-```python
-importance = results.explain(method="auto")
-```
-
-Auto mode uses native tree importance or absolute coefficient magnitude where available, then falls back to holdout permutation importance for supervised tasks. `method="shap"` requires the optional extra. Importance describes model behavior and is not causal evidence. Unsupervised feature importance is not inferred.
-
-### Plots, reports, and CSV
-
-```python
-results.plot(kind="leaderboard")
-results.plot(kind="confusion_matrix")  # classification
-results.plot(kind="roc_curve")          # binary classification
-results.plot(kind="precision_recall_curve")  # binary classification
-results.plot(kind="residuals")          # regression
-results.plot(kind="clusters")           # clustering
-print(results.classification_report())
-results.to_csv("leaderboard.csv")
-results.report("experiment.html")
-```
-
-Plots need `autodatamining[visualization]`. HTML reports include experiment metadata, metrics, leaderboard, and evaluation limitations; dataset rows are not included.
-
-### Save and load
-
-```python
-from autodatamining import load_model
-
-results.save("model.joblib")
-model = load_model("model.joblib")
-predictions = model.predict(new_data)
-```
-
-Prediction validates feature names and permits incoming DataFrame columns in a different order. Missing or unexpected columns raise an error. A joblib/pickle artifact can execute code when loaded: only load files from a trusted source. Artifacts record the scikit-learn version; cross-version compatibility is not guaranteed.
-
-## Evaluation notes
-
-- Supervised evaluation uses a train/test split and cross-validation on the training partition. Preprocessing is in the estimator pipeline and is fitted independently inside each fold.
-- Classification uses stratification where class counts allow. Very small classes can prevent stratification or CV; the runner warns and reports what it could evaluate.
-- CV score selects the supervised model when available. Holdout metrics are reported separately and should not be used repeatedly to tune the experiment.
-- Clustering and unlabeled anomaly detection do not have ground-truth accuracy. Internal scores and anomaly rates have narrower meanings.
-- Compare models using a metric tied to the intended use, and assess class imbalance, data leakage, temporal or grouped splits, calibration, latency, and deployment data drift separately.
-- A top score in one experiment is not necessarily the best model for all datasets or real-world use.
-
-## Troubleshooting
-
-- **`task='auto' requires a target column`**: pass a target or explicitly choose clustering/anomaly.
-- **A requested estimator failed**: inspect its `status` and `error` in `results.leaderboard`; try fewer parameters or another model.
-- **Feature columns do not match**: supply the same feature names as training; DataFrame column order may differ.
-- **A score is missing/NaN**: some metrics need multiple target classes or at least two non-noise clusters.
-- **Plotting or SHAP import error**: install the corresponding optional extra.
-
-## Development
-
-```bash
+~~~bash
 python -m pip install -e ".[dev,visualization]"
 python -m compileall -q src tests
 python -m ruff check src tests examples
 python -m pytest -q
 python -m build
 python -m twine check dist/*
-```
+~~~
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) and [CHANGELOG.md](CHANGELOG.md). Contributions should include tests for changed behavior and preserve the distinction between training CV and holdout evaluation.
+Lihat [panduan kontribusi](CONTRIBUTING.md), [changelog](CHANGELOG.md), [panduan preprocessing](docs/preprocessing.md), dan [panduan pemula](docs/panduan-penggunaan.md).
 
-## PyPI release checklist
+## Rilis PyPI
 
-1. Review source, dependency licenses, project ownership, name availability, and version.
-2. Run the test suite and build checks above.
-3. Inspect wheel and source distribution contents.
-4. Upload to TestPyPI and install into a clean virtual environment.
-5. Publish to PyPI using an API token held outside the source tree or trusted publishing.
-6. Verify the published install and create a version tag.
+Versi 0.1.1 tersedia di PyPI. Versi pengembangan 0.1.2 pada source ini belum dipublikasikan. Untuk rilis berikutnya, tinjau source code, lisensi dependensi, kepemilikan proyek, nomor versi, dan isi wheel/source distribution. Unggah dengan token PyPI yang disimpan di luar source code atau melalui trusted publishing. Jangan menyimpan kredensial di repository.
 
-Version 0.1.0 was previously published to PyPI. This source tree targets version 0.1.1; follow the release checklist above to build and publish it. No credentials belong in the repository.
+## Lisensi
 
-## License
-
-MIT; see [LICENSE](LICENSE). Review ownership and attribution when preparing a release.
+AutoDataMining menggunakan lisensi MIT. Lihat file [LICENSE](LICENSE).

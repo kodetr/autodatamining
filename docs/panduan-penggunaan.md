@@ -130,6 +130,29 @@ print(prediksi)
 `data-baru.csv` harus memiliki nama kolom fitur yang sama seperti data training. Urutan kolom boleh
 berbeda.
 
+### Menggabungkan model tanpa import estimator scikit-learn
+
+Pilih `voting` atau `stacking` pada parameter `models`; tidak perlu mengimpor VotingClassifier atau
+StackingClassifier sendiri. AutoDataMining menyiapkan model dasar dan menggabungkan prediksinya di
+dalam pipeline.
+
+```python
+results = AutoDataMining(
+    task="classification",
+    target="label",
+    models=["voting", "stacking"],
+    cv=5,
+    random_state=42,
+).fit(data)
+
+print(results.leaderboard)
+```
+
+Untuk klasifikasi, voting menggunakan soft voting dan stacking mempelajari model akhir untuk
+menggabungkan prediksi. Pada regresi, pilihan yang sama memakai VotingRegressor dan
+StackingRegressor. Keduanya dibandingkan sebagai kandidat terpisah; model gabungan terbaik dipilih
+dengan skor validasi silang.
+
 ## 5. Contoh regression
 
 Pakai `task="regression"` saat target berupa nilai kontinu, misalnya harga, suhu, atau durasi.

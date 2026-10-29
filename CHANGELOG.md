@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.2 — unreleased
+
+- Added built-in voting and stacking ensembles for classification and regression.
+- Propagated the experiment random seed to nested ensemble estimators.
+
 ## 0.1.1 — 2026-10-30
 
 - Added configurable numeric and categorical preprocessing strategies and custom scikit-learn transformers.

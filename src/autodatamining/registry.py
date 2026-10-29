@@ -16,6 +16,10 @@ from sklearn.ensemble import (
     IsolationForest,
     RandomForestClassifier,
     RandomForestRegressor,
+    StackingClassifier,
+    StackingRegressor,
+    VotingClassifier,
+    VotingRegressor,
 )
 from sklearn.linear_model import Lasso, LinearRegression, LogisticRegression, Ridge
 from sklearn.mixture import GaussianMixture
@@ -40,8 +44,13 @@ class EstimatorSpec:
     def instantiate(self, random_state=None, params=None):
         base = self.estimator() if isinstance(self.estimator, type) else clone(self.estimator)
         config = deepcopy(self.default_params)
-        if random_state is not None and "random_state" in base.get_params(deep=False):
-            config["random_state"] = random_state
+        if random_state is not None:
+            shallow_params = base.get_params(deep=False)
+            if "random_state" in shallow_params:
+                config["random_state"] = random_state
+            for name, value in base.get_params(deep=True).items():
+                if name.endswith("__random_state") and value is None:
+                    config[name] = random_state
         if params:
             config.update(params)
         try:
@@ -117,6 +126,29 @@ class EstimatorRegistry:
             "knn": (KNeighborsClassifier, {"n_neighbors": 5}),
             "gaussian_nb": (GaussianNB, {}),
             "svm": (SVC, {"probability": True}),
+            "voting": (
+                VotingClassifier(
+                    estimators=[
+                        ("logistic", LogisticRegression(max_iter=1000)),
+                        ("random_forest", RandomForestClassifier(n_estimators=100, n_jobs=-1)),
+                        ("extra_trees", ExtraTreesClassifier(n_estimators=100, n_jobs=-1)),
+                    ],
+                    voting="soft",
+                ),
+                {},
+            ),
+            "stacking": (
+                StackingClassifier(
+                    estimators=[
+                        ("logistic", LogisticRegression(max_iter=1000)),
+                        ("random_forest", RandomForestClassifier(n_estimators=100, n_jobs=-1)),
+                        ("extra_trees", ExtraTreesClassifier(n_estimators=100, n_jobs=-1)),
+                    ],
+                    final_estimator=LogisticRegression(max_iter=1000),
+                    cv=3,
+                ),
+                {},
+            ),
         }
         regressors = {
             "linear_regression": (LinearRegression, {}),
@@ -129,6 +161,28 @@ class EstimatorRegistry:
             "hist_gradient_boosting": (HistGradientBoostingRegressor, {}),
             "knn": (KNeighborsRegressor, {"n_neighbors": 5}),
             "svm": (SVR, {}),
+            "voting": (
+                VotingRegressor(
+                    estimators=[
+                        ("ridge", Ridge()),
+                        ("random_forest", RandomForestRegressor(n_estimators=100, n_jobs=-1)),
+                        ("extra_trees", ExtraTreesRegressor(n_estimators=100, n_jobs=-1)),
+                    ]
+                ),
+                {},
+            ),
+            "stacking": (
+                StackingRegressor(
+                    estimators=[
+                        ("ridge", Ridge()),
+                        ("random_forest", RandomForestRegressor(n_estimators=100, n_jobs=-1)),
+                        ("extra_trees", ExtraTreesRegressor(n_estimators=100, n_jobs=-1)),
+                    ],
+                    final_estimator=Ridge(),
+                    cv=3,
+                ),
+                {},
+            ),
         }
         for name, (cls, params) in classifiers.items():
             self._add(name, cls, "classification", params)
