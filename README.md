@@ -359,9 +359,9 @@ python -m twine check dist/*
 
 Lihat [panduan kontribusi](CONTRIBUTING.md), [changelog](CHANGELOG.md), [panduan preprocessing](docs/preprocessing.md), dan [panduan pemula](docs/panduan-penggunaan.md).
 
-## Rilis PyPI
+## PyPI
 
-Versi 0.1.1 tersedia di PyPI. Versi pengembangan 0.1.2 pada source ini belum dipublikasikan. Untuk rilis berikutnya, tinjau source code, lisensi dependensi, kepemilikan proyek, nomor versi, dan isi wheel/source distribution. Unggah dengan token PyPI yang disimpan di luar source code atau melalui trusted publishing. Jangan menyimpan kredensial di repository.
+[AutoDataMining di PyPI](https://pypi.org/project/autodatamining)
 
 ## Lisensi
 
