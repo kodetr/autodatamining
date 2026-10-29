@@ -1,7 +1,4 @@
 # AutoDataMining
-
-## Deskripsi
-
 **AutoDataMining** adalah pustaka Python untuk membantu menjalankan alur kerja data mining pada data berbentuk tabel dengan scikit-learn. Pustaka ini menyatukan prapemrosesan, perbandingan model, evaluasi, visualisasi, laporan, dan penyimpanan model dalam satu antarmuka.
 
 Dengan AutoDataMining, pengguna dapat memilih jenis tugas, menentukan kolom target bila diperlukan, membandingkan beberapa estimator, melihat metrik evaluasi, lalu menyimpan pipeline yang mencakup prapemrosesan dan model.
@@ -183,6 +180,8 @@ print(results.best_model)
 ~~~
 
 Untuk klasifikasi, voting menggabungkan probabilitas prediksi (soft voting), sedangkan stacking melatih model akhir untuk mempelajari cara menggabungkan prediksi model dasar. Untuk regresi, nama voting dan stacking menggunakan VotingRegressor dan StackingRegressor. Keduanya dievaluasi sebagai kandidat model; AutoDataMining memilih hasil terbaik berdasarkan skor validasi silang.
+
+Lihat [panduan penggunaan Ensemble Learning](docs/ensemble-learning.md) untuk contoh klasifikasi, regresi, dan pengaturan model dasar tanpa import estimator scikit-learn.
 
 ## Algoritma dan metrik
 

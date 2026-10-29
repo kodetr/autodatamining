@@ -151,7 +151,8 @@ print(results.leaderboard)
 Untuk klasifikasi, voting menggunakan soft voting dan stacking mempelajari model akhir untuk
 menggabungkan prediksi. Pada regresi, pilihan yang sama memakai VotingRegressor dan
 StackingRegressor. Keduanya dibandingkan sebagai kandidat terpisah; model gabungan terbaik dipilih
-dengan skor validasi silang.
+dengan skor validasi silang. Untuk contoh regresi, pengaturan model dasar, dan penjelasan hasil yang
+lebih lengkap, baca [panduan Ensemble Learning](ensemble-learning.md).
 
 ## 5. Contoh regression
 
