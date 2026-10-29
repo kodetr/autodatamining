@@ -1,0 +1,4 @@
+include README.md LICENSE CHANGELOG.md CONTRIBUTING.md build.md
+recursive-include docs *.md
+recursive-include examples *.py
+recursive-include .github/workflows *.yml

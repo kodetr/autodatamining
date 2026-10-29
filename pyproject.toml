@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "autodatamining"
+version = "0.1.0"
+description = "A consistent, transparent scikit-learn based data mining workflow."
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+authors = [{name = "AutoDataMining contributors"}]
+keywords = ["machine-learning", "data-mining", "automl", "scikit-learn"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Education",
+  "Intended Audience :: Science/Research",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+  "numpy>=1.22",
+  "pandas>=1.4",
+  "scikit-learn>=1.2",
+]
+
+[project.optional-dependencies]
+visualization = ["matplotlib>=3.5"]
+explainability = ["shap>=0.42"]
+dev = ["pytest>=7", "pytest-cov>=4", "build>=1", "twine>=4", "ruff>=0.4"]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
