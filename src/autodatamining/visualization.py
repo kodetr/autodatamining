@@ -5,7 +5,7 @@ import numpy as np
 from .exceptions import DataValidationError
 
 
-def plot_results(results, kind="leaderboard", ax=None, show=False, save_path=None):
+def plot_results(results, kind="leaderboard", ax=None, show=False, save_path=None, model_name=None):
     try:
         import matplotlib.pyplot as plt
         from sklearn.decomposition import PCA
@@ -34,28 +34,62 @@ def plot_results(results, kind="leaderboard", ax=None, show=False, save_path=Non
     elif kind == "confusion_matrix":
         if results.task != "classification" or results._y_test is None:
             raise DataValidationError("confusion_matrix plots require a supervised classification run")
-        prediction = results.predict(results._X_test)
-        ConfusionMatrixDisplay.from_predictions(results._y_test, prediction, ax=ax, colorbar=False)
+        target_model = results.best_model
+        model_display = str(results.model_name).upper()
+        if model_name and hasattr(results, "fitted_models") and model_name in results.fitted_models:
+            target_model = results.fitted_models[model_name]
+            model_display = str(model_name).upper()
+        prediction = target_model.predict(results._X_test)
+        ConfusionMatrixDisplay.from_predictions(results._y_test, prediction, ax=ax, colorbar=False, cmap="Blues")
+        ax.set_title(f"Matriks Kebingungan (Confusion Matrix) - {model_display}")
     elif kind == "residuals":
         if results.task != "regression" or results._y_test is None:
             raise DataValidationError("residual plots require a supervised regression run")
-        prediction = results.predict(results._X_test)
+        target_model = results.best_model
+        model_display = str(results.model_name).upper()
+        if model_name and hasattr(results, "fitted_models") and model_name in results.fitted_models:
+            target_model = results.fitted_models[model_name]
+            model_display = str(model_name).upper()
+        prediction = target_model.predict(results._X_test)
         residuals = np.asarray(results._y_test) - np.asarray(prediction)
-        ax.scatter(prediction, residuals, alpha=0.7)
+        ax.scatter(prediction, residuals, alpha=0.7, color="#2563eb")
         ax.axhline(0, color="black", linewidth=1)
-        ax.set_xlabel("Predicted value")
-        ax.set_ylabel("Residual")
-        ax.set_title("Holdout residuals")
+        ax.set_xlabel("Nilai Prediksi")
+        ax.set_ylabel("Residual (Galat)")
+        ax.set_title(f"Residual Plot - {model_display}")
+    elif kind == "actual_vs_predicted":
+        if results.task != "regression" or results._y_test is None:
+            raise DataValidationError("actual_vs_predicted plots require a supervised regression run")
+        target_model = results.best_model
+        model_display = str(results.model_name).upper()
+        if model_name and hasattr(results, "fitted_models") and model_name in results.fitted_models:
+            target_model = results.fitted_models[model_name]
+            model_display = str(model_name).upper()
+        prediction = target_model.predict(results._X_test)
+        actual = np.asarray(results._y_test)
+        ax.scatter(actual, prediction, alpha=0.7, color="#2563eb")
+        min_v = float(min(actual.min(), prediction.min()))
+        max_v = float(max(actual.max(), prediction.max()))
+        ax.plot([min_v, max_v], [min_v, max_v], linestyle="--", color="#dc2626", label="Garis Ideal (y = x)")
+        ax.set_xlabel("Nilai Aktual (Sebenarnya)")
+        ax.set_ylabel("Nilai Prediksi Model")
+        ax.set_title(f"Aktual vs Prediksi - {model_display}")
+        ax.legend()
     elif kind in {"roc_curve", "precision_recall_curve"}:
         if results.task != "classification" or results._y_test is None:
             raise DataValidationError(f"{kind} plots require a supervised classification run")
-        classes = list(results.best_model.classes_)
+        target_model = results.best_model
+        model_display = str(results.model_name).upper()
+        if model_name and hasattr(results, "fitted_models") and model_name in results.fitted_models:
+            target_model = results.fitted_models[model_name]
+            model_display = str(model_name).upper()
+        classes = list(target_model.classes_)
         if len(classes) != 2:
             raise DataValidationError(f"{kind} currently requires a binary classification task")
-        if hasattr(results.best_model, "predict_proba"):
-            scores = results.best_model.predict_proba(results._X_test)[:, 1]
-        elif hasattr(results.best_model, "decision_function"):
-            scores = results.best_model.decision_function(results._X_test)
+        if hasattr(target_model, "predict_proba"):
+            scores = target_model.predict_proba(results._X_test)[:, 1]
+        elif hasattr(target_model, "decision_function"):
+            scores = target_model.decision_function(results._X_test)
         else:
             raise DataValidationError("the selected estimator has no score method for curve plotting")
         positive = np.asarray(results._y_test) == classes[1]
@@ -161,8 +195,8 @@ def plot_results(results, kind="leaderboard", ax=None, show=False, save_path=Non
         ax.set_title(f"Diagram Alur Pipeline AutoDataMining ({results.task.title()})", fontsize=11.5, pad=12, weight="bold")
     else:
         raise DataValidationError(
-            "kind must be 'leaderboard', 'confusion_matrix', 'residuals', 'roc_curve', "
-            "'precision_recall_curve', 'clusters', 'anomalies', 'rules', or 'pipeline'"
+            "kind must be 'leaderboard', 'confusion_matrix', 'residuals', 'actual_vs_predicted', "
+            "'roc_curve', 'precision_recall_curve', 'clusters', 'anomalies', 'rules', or 'pipeline'"
         )
     if save_path:
         ax.figure.savefig(save_path, dpi=150, bbox_inches="tight")

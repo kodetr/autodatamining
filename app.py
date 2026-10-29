@@ -332,41 +332,166 @@ with tab_leaderboard:
 
 # ----------------- TAB 3: VISUALISASI GRAFIK -----------------
 with tab_viz:
-    st.subheader("Visualisasi Diagnostik & Arsitektur Pipeline")
+    st.subheader("📈 Visualisasi Diagnostik & Arsitektur Pipeline")
     results = st.session_state.results
     if results is not None:
-        viz_choice = st.radio(
-            "Pilih Grafik yang Ingin Ditampilkan:",
-            ("Diagram Alur Pipeline", "Grafik Diagnostik Model"),
-            horizontal=True,
-        )
-        
-        fig, ax = plt.subplots(figsize=(9, 4.8))
-        if viz_choice == "Diagram Alur Pipeline":
-            try:
-                results.plot(kind="pipeline", ax=ax)
-                st.pyplot(fig)
-            except Exception as e:
-                st.warning(f"Tidak dapat membuat diagram pipeline: {e}")
+        # 1. Pilihan Model untuk Evaluasi (Jika Classification / Regression)
+        if results.task in {"classification", "regression"}:
+            model_options = list(results.leaderboard["model"].unique())
+            selected_model = st.selectbox(
+                "🎯 Pilih Algoritma yang Ingin Dilihat Evaluasi Grafiknya:",
+                model_options,
+                index=0,
+                format_func=lambda x: f"{x.upper()} {'(🏆 Pemenang Leaderboard)' if x == results.model_name else ''}",
+            )
         else:
-            try:
-                if results.task == "classification":
-                    chart_kind = st.selectbox("Pilihan Grafik Klasifikasi:", ["confusion_matrix", "roc_curve", "leaderboard"])
-                    results.plot(kind=chart_kind, ax=ax)
-                elif results.task == "regression":
-                    chart_kind = st.selectbox("Pilihan Grafik Regresi:", ["residuals", "leaderboard"])
-                    results.plot(kind=chart_kind, ax=ax)
-                elif results.task == "clustering":
-                    results.plot(kind="clusters", ax=ax)
-                elif results.task == "anomaly":
-                    results.plot(kind="anomalies", ax=ax)
-                elif results.task == "association":
-                    results.plot(kind="rules", ax=ax)
-                st.pyplot(fig)
-            except Exception as e:
-                st.warning(f"Grafik tidak dapat digambar: {e}")
+            selected_model = results.model_name
+
+        st.markdown("---")
+        
+        # 2. Grafik Diagnostik Spesifik Sesuai Pilar Tugas
+        if results.task == "classification":
+            st.markdown(f"#### 🎯 Evaluasi Model: `{selected_model.upper()}`")
+            col_v1, col_v2 = st.columns(2)
+            with col_v1:
+                st.write("**Matriks Kebingungan (Confusion Matrix):**")
+                fig_cm, ax_cm = plt.subplots(figsize=(5.5, 4.2))
+                try:
+                    results.plot(kind="confusion_matrix", ax=ax_cm, model_name=selected_model)
+                    st.pyplot(fig_cm)
+                except Exception as e:
+                    st.warning(f"Tidak dapat menggambar matriks kebingungan: {e}")
+                finally:
+                    plt.close(fig_cm)
+                st.info("💡 **Cara Membaca:** Kotak diagonal (kiri-atas dan kanan-bawah) menunjukkan prediksi yang **BENAR**. Kotak di luar diagonal menunjukkan kesalahan prediksi (*False Positives / False Negatives*).")
+
+            with col_v2:
+                st.write("**Kurva ROC (Receiver Operating Characteristic):**")
+                fig_roc, ax_roc = plt.subplots(figsize=(5.5, 4.2))
+                try:
+                    results.plot(kind="roc_curve", ax=ax_roc, model_name=selected_model)
+                    st.pyplot(fig_roc)
+                except Exception:
+                    # Fallback jika multi-class: tampilkan grafik batang leaderboard
+                    st.write("**Perbandingan Akurasi/F1 Semua Model:**")
+                    results.plot(kind="leaderboard", ax=ax_roc)
+                    st.pyplot(fig_roc)
+                finally:
+                    plt.close(fig_roc)
+                st.info("💡 **Cara Membaca:** Garis kurva yang semakin mendekati sudut kiri-atas menunjukkan kemampuan model yang semakin sempurna dalam membedakan kelas.")
+
+        elif results.task == "regression":
+            st.markdown(f"#### 🎯 Evaluasi Model: `{selected_model.upper()}`")
+            col_r1, col_r2 = st.columns(2)
+            with col_r1:
+                st.write("**Plot Residual (Sebaran Galat Error):**")
+                fig_res, ax_res = plt.subplots(figsize=(5.5, 4.2))
+                try:
+                    results.plot(kind="residuals", ax=ax_res, model_name=selected_model)
+                    st.pyplot(fig_res)
+                except Exception as e:
+                    st.warning(f"Gagal menggambar residual: {e}")
+                finally:
+                    plt.close(fig_res)
+                st.info("💡 **Cara Membaca:** Titik-titik yang menyebar acak dan merata di sekitar garis horizontal 0 menunjukkan model yang sehat dan bebas bias (*homoskedastis*).")
+
+            with col_r2:
+                st.write("**Scatter Plot Nilai Aktual vs Prediksi:**")
+                fig_avp, ax_avp = plt.subplots(figsize=(5.5, 4.2))
+                try:
+                    results.plot(kind="actual_vs_predicted", ax=ax_avp, model_name=selected_model)
+                    st.pyplot(fig_avp)
+                except Exception as e:
+                    st.warning(f"Gagal menggambar scatter prediksi: {e}")
+                finally:
+                    plt.close(fig_avp)
+                st.info("💡 **Cara Membaca:** Semakin dekat titik-titik data ke garis putus-putus merah ($y=x$), semakin presisi prediksi model.")
+
+        elif results.task == "clustering":
+            st.markdown("#### 🔍 Evaluasi Sebaran Klaster")
+            col_c1, col_c2 = st.columns(2)
+            with col_c1:
+                st.write("**Proyeksi 2D Klaster (PCA):**")
+                fig_cl, ax_cl = plt.subplots(figsize=(5.5, 4.2))
+                try:
+                    results.plot(kind="clusters", ax=ax_cl)
+                    st.pyplot(fig_cl)
+                except Exception as e:
+                    st.warning(f"Gagal menggambar klaster: {e}")
+                finally:
+                    plt.close(fig_cl)
+            with col_c2:
+                st.write("**Perbandingan Silhouette Score:**")
+                fig_lb, ax_lb = plt.subplots(figsize=(5.5, 4.2))
+                results.plot(kind="leaderboard", ax=ax_lb)
+                st.pyplot(fig_lb)
+                plt.close(fig_lb)
+
+        elif results.task == "association":
+            st.markdown("#### 🛒 Evaluasi Aturan Asosiasi Transaksi")
+            col_a1, col_a2 = st.columns(2)
+            with col_a1:
+                st.write("**Scatter Plot Aturan (Support vs Confidence vs Lift):**")
+                fig_ar, ax_ar = plt.subplots(figsize=(5.5, 4.2))
+                try:
+                    results.plot(kind="rules", ax=ax_ar)
+                    st.pyplot(fig_ar)
+                except Exception as e:
+                    st.warning(f"Gagal menggambar aturan: {e}")
+                finally:
+                    plt.close(fig_ar)
+            with col_a2:
+                st.write("**Jumlah Aturan yang Dihasilkan:**")
+                fig_lb, ax_lb = plt.subplots(figsize=(5.5, 4.2))
+                results.plot(kind="leaderboard", ax=ax_lb)
+                st.pyplot(fig_lb)
+                plt.close(fig_lb)
+
+        elif results.task == "anomaly":
+            st.markdown("#### 🚨 Evaluasi Deteksi Anomali")
+            col_an1, col_an2 = st.columns(2)
+            with col_an1:
+                st.write("**Proyeksi Titik Anomali vs Normal (2D PCA):**")
+                fig_an, ax_an = plt.subplots(figsize=(5.5, 4.2))
+                try:
+                    results.plot(kind="anomalies", ax=ax_an)
+                    st.pyplot(fig_an)
+                except Exception as e:
+                    st.warning(f"Gagal menggambar anomali: {e}")
+                finally:
+                    plt.close(fig_an)
+            with col_an2:
+                st.write("**Persentase Anomali yang Terdeteksi Tiap Algoritma:**")
+                fig_lb, ax_lb = plt.subplots(figsize=(5.5, 4.2))
+                results.plot(kind="leaderboard", ax=ax_lb)
+                st.pyplot(fig_lb)
+                plt.close(fig_lb)
+
+        st.markdown("---")
+        
+        # 3. Grafik Perbandingan Semua Algoritma (Leaderboard Bar Chart)
+        st.markdown("#### 🏆 Perbandingan Performa Seluruh Algoritma (Leaderboard)")
+        fig_board, ax_board = plt.subplots(figsize=(8.5, 3.8))
+        try:
+            results.plot(kind="leaderboard", ax=ax_board)
+            st.pyplot(fig_board)
+        except Exception as e:
+            st.warning(f"Gagal menggambar leaderboard: {e}")
+        finally:
+            plt.close(fig_board)
+
+        # 4. Diagram Alur Pipeline Data Mining
+        st.markdown("#### 🏗️ Diagram Alur Pipeline Data Mining (Arsitektur)")
+        fig_pipe, ax_pipe = plt.subplots(figsize=(9, 2.6))
+        try:
+            results.plot(kind="pipeline", ax=ax_pipe)
+            st.pyplot(fig_pipe)
+        except Exception as e:
+            st.warning(f"Gagal membuat diagram pipeline: {e}")
+        finally:
+            plt.close(fig_pipe)
     else:
-        st.info("Jalankan pemodelan terlebih dahulu untuk menampilkan visualisasi.")
+        st.info("Tekan tombol **'🚀 Jalankan Penambangan Data Sekarang'** pada bilah sisi kiri terlebih dahulu untuk melihat seluruh visualisasi.")
 
 # ----------------- TAB 4: KESIMPULAN ILMIAH -----------------
 with tab_summary:

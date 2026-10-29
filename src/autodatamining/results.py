@@ -75,7 +75,8 @@ class MiningResults:
 
     def __init__(self, task, leaderboard, best_model, metrics, selection_note, experiment,
                  labels=None, X_test=None, y_test=None, model_name=None,
-                 frequent_itemsets=None, rules=None, X_train=None, y_train=None):
+                 frequent_itemsets=None, rules=None, X_train=None, y_train=None,
+                 fitted_models=None):
         self.task = task
         self.leaderboard = leaderboard
         self.best_model = best_model
@@ -90,6 +91,7 @@ class MiningResults:
         self.model_name = model_name
         self.frequent_itemsets = frequent_itemsets
         self.rules = rules
+        self.fitted_models = fitted_models or {}
 
     def tune(self, param_grid=None, method="random", n_iter=6, cv=3, random_state=42):
         """Tune hyperparameters of the winning model using cross-validated search."""
@@ -125,9 +127,9 @@ class MiningResults:
                 for name, value in report.items()}
         return pd.DataFrame.from_dict(rows, orient="index")
 
-    def plot(self, kind="leaderboard", ax=None, show=False, save_path=None):
+    def plot(self, kind="leaderboard", ax=None, show=False, save_path=None, model_name=None):
         """Create a matplotlib plot and return its axes."""
-        return plot_results(self, kind=kind, ax=ax, show=show, save_path=save_path)
+        return plot_results(self, kind=kind, ax=ax, show=show, save_path=save_path, model_name=model_name)
 
     def report(self, path):
         """Write a self-contained HTML report without embedding source dataset rows."""

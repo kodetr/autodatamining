@@ -235,11 +235,13 @@ class AutoDataMining:
         )
         experiment["selected_model"] = winner["model"]
         experiment["selected_model_params"] = models[winner["model"]].named_steps["model"].get_params(deep=False)
+        validated_models = {m: ValidatedModel(p, list(X.columns)) for m, p in models.items()}
         return MiningResults(
             task=task, leaderboard=leaderboard, best_model=model, metrics=best_metrics,
             selection_note=selection_note, experiment=experiment,
             X_test=X_test, y_test=y_test, model_name=winner["model"],
             X_train=X_train, y_train=y_train,
+            fitted_models=validated_models,
         )
 
     def _cv_splitter(self, task, y_train):
