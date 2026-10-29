@@ -41,14 +41,17 @@ Untuk memakai grafik dan visualisasi hasil:
 python -m pip install "autodatamining[visualization]"
 ~~~
 
-Untuk menjalankan Web Dashboard No-Code (GUI):
+Untuk menjalankan Web Dashboard No-Code (GUI) secara lokal:
 
 ~~~bash
 python -m pip install "autodatamining[ui]"
 python -m autodatamining.ui
 ~~~
 
-Untuk deploy ke Hugging Face Spaces secara gratis, baca [Panduan Hugging Face Spaces](docs/huggingface-spaces.md).
+Atau coba langsung secara online tanpa install di Hugging Face Spaces:
+👉 **[https://huggingface.co/spaces/kodetr/autodatamining](https://huggingface.co/spaces/kodetr/autodatamining)**
+
+Untuk panduan deploy sendiri ke Space Anda, baca [Panduan Hugging Face Spaces](docs/huggingface-spaces.md).
 
 Untuk fitur SHAP opsional:
 

@@ -1,6 +1,8 @@
 # Panduan Deploy Web Dashboard ke Hugging Face Spaces
 
-AutoDataMining menyediakan **Web Dashboard No-Code Interaktif** berbasis **Streamlit** yang dapat diakses melalui browser tanpa perlu menginstal aplikasi apa pun. Anda dapat menerapkannya (*deploy*) secara gratis ke **Hugging Face Spaces**.
+AutoDataMining menyediakan **Web Dashboard No-Code Interaktif** berbasis **Streamlit** yang dapat diakses melalui browser tanpa perlu menginstal aplikasi apa pun.
+
+👉 **Demo Online Resmi:** **[https://huggingface.co/spaces/kodetr/autodatamining](https://huggingface.co/spaces/kodetr/autodatamining)**
 
 ---
 
