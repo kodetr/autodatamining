@@ -1,13 +1,45 @@
-"""Small, reproducible classification example."""
-import pandas as pd
-from sklearn.datasets import make_classification
+"""Contoh Klasifikasi Nyata: Prediksi Kelulusan Mahasiswa.
 
-from autodatamining import AutoDataMining
+Menunjukkan alur kerja lengkap klasifikasi menggunakan dataset edukasi bawaan:
+1. Memuat dataset 'kelulusan_mahasiswa'
+2. Profiling ringkas data
+3. Menjalankan AutoML klasifikasi (membandingkan berbagai algoritma)
+4. Menampilkan leaderboard & kesimpulan naratif otomatis
+5. Melakukan hyperparameter tuning otomatis
+6. Mengekspor tabel skripsi format baku
+"""
 
-X, y = make_classification(n_samples=180, n_features=8, random_state=42)
-data = pd.DataFrame(X, columns=[f"feature_{i}" for i in range(X.shape[1])])
-data["label"] = y
-results = AutoDataMining(task="classification", target="label", models=["logistic_regression", "random_forest"],
-                         cv=3, scoring="f1_weighted", random_state=42).fit(data)
+from autodatamining import AutoDataMining, load_dataset
+
+# 1. Muat dataset edukasi bawaan
+data = load_dataset("kelulusan_mahasiswa")
+print("=== 5 Baris Pertama Data ===")
+print(data.head())
+
+# 2. Jalankan AutoDataMining untuk klasifikasi
+results = AutoDataMining(
+    task="classification",
+    target="lulus_tepat_waktu",
+    scoring="f1_weighted",
+    cv=5,
+    random_state=42,
+).fit(data)
+
+# 3. Peringkat Model (Leaderboard)
+print("\n=== Peringkat Model (Leaderboard) ===")
 print(results.leaderboard)
-print(results.metrics)
+
+# 4. Kesimpulan Naratif Otomatis (Bahasa Indonesia)
+print("\n=== Kesimpulan Naratif Otomatis ===")
+print(results.summary())
+
+# 5. Tabel Hasil untuk Bab IV Skripsi
+print("\n=== Tabel Format Skripsi ===")
+print(results.to_academic_table())
+
+# 6. Automated Hyperparameter Tuning pada model terbaik
+print("\n=== Menjalankan Hyperparameter Tuning ===")
+tuned = results.tune(method="random", n_iter=6)
+print(tuned.summary())
+print("\nPerbandingan Skor:")
+print(tuned.comparison)

@@ -54,15 +54,27 @@ class AutoDataMining:
         registry=None,
         model_params=None,
         preprocessing=None,
+        min_support=0.1,
+        min_confidence=0.5,
+        max_len=None,
+        metric="confidence",
     ):
-        self.config = MiningConfig(task=task, target=target, test_size=test_size, cv=cv,
-                                   random_state=random_state, scoring=scoring)
+        self.config = MiningConfig(
+            task=task, target=target, test_size=test_size, cv=cv,
+            random_state=random_state, scoring=scoring,
+            min_support=min_support, min_confidence=min_confidence,
+            max_len=max_len, metric=metric,
+        )
         self.task = task
         self.target = target
         self.models = [models] if isinstance(models, str) else (list(models) if models is not None else None)
         self.registry = registry or DEFAULT_REGISTRY
         self.model_params = model_params or {}
         self.preprocessing = preprocessing
+        self.min_support = min_support
+        self.min_confidence = min_confidence
+        self.max_len = max_len
+        self.metric = metric
         if not isinstance(self.model_params, dict):
             raise DataValidationError("model_params must be a mapping of model name to parameters")
         self.results_ = None
@@ -81,6 +93,12 @@ class AutoDataMining:
 
     def fit(self, data):
         """Fit, evaluate, and compare estimators; return a :class:`MiningResults` object."""
+        if self.task in {"association", "association_rules", "association_rule_mining"}:
+            self.resolved_task_ = "association"
+            outcome = self._fit_association(data)
+            self.results_ = outcome
+            return outcome
+
         frame = as_frame(data)
         if self.target is not None and self.target not in frame.columns and self.task != "clustering":
             raise DataValidationError(f"target column {self.target!r} was not found")
@@ -91,8 +109,10 @@ class AutoDataMining:
             outcome = self._fit_supervised(frame, resolved)
         elif resolved == "clustering":
             outcome = self._fit_clustering(frame)
-        else:
+        elif resolved == "anomaly":
             outcome = self._fit_anomaly(frame, target_values)
+        else:
+            outcome = self._fit_association(data)
         self.results_ = outcome
         return outcome
 
@@ -219,6 +239,7 @@ class AutoDataMining:
             task=task, leaderboard=leaderboard, best_model=model, metrics=best_metrics,
             selection_note=selection_note, experiment=experiment,
             X_test=X_test, y_test=y_test, model_name=winner["model"],
+            X_train=X_train, y_train=y_train,
         )
 
     def _cv_splitter(self, task, y_train):
@@ -447,6 +468,100 @@ class AutoDataMining:
             labels=np.asarray(labels), selection_note=selection_note,
             experiment=experiment,
             X_test=X_test, y_test=y_test, model_name=winner["model"],
+        )
+
+    def _fit_association(self, data):
+        from .association import apriori, association_rules, fpgrowth
+
+        available_models = {"fpgrowth": fpgrowth, "apriori": apriori}
+        if self.models is not None:
+            names = [m.lower().strip() for m in self.models]
+            for name in names:
+                if name not in available_models:
+                    raise DataValidationError(
+                        f"unknown association model {name!r}; choose from {sorted(available_models)}"
+                    )
+        else:
+            names = ["fpgrowth", "apriori"]
+
+        rows = []
+        best_itemsets = None
+        best_rules = None
+        best_time = float("inf")
+        winner = None
+
+        for name in names:
+            runner = available_models[name]
+            row = {"model": name, "status": "failed", "execution_seconds": float("nan")}
+            try:
+                start = time.perf_counter()
+                itemsets = runner(data, min_support=self.min_support, max_len=self.max_len)
+                elapsed = float(time.perf_counter() - start)
+                rules = association_rules(
+                    itemsets, metric=self.metric, min_threshold=self.min_confidence
+                )
+                row["execution_seconds"] = elapsed
+                row["itemsets_count"] = len(itemsets)
+                row["rules_count"] = len(rules)
+                row["status"] = "ok"
+
+                if elapsed < best_time or winner is None:
+                    best_time = elapsed
+                    best_itemsets = itemsets
+                    best_rules = rules
+                    winner = name
+            except Exception as exc:  # noqa: BLE001
+                row["error"] = f"{type(exc).__name__}: {exc}"
+            rows.append(row)
+
+        successes = [row for row in rows if row["status"] == "ok"]
+        if not successes:
+            details = "; ".join(f"{row['model']}: {row.get('error', 'failed')}" for row in rows)
+            raise NoModelsSucceededError(f"all association models failed: {details}")
+
+        leaderboard = pd.DataFrame(rows).sort_values(
+            by=["status", "execution_seconds"], ascending=[False, True]
+        ).reset_index(drop=True)
+        leaderboard["rank"] = np.arange(1, len(leaderboard) + 1)
+
+        metrics = {
+            "itemsets_count": len(best_itemsets),
+            "rules_count": len(best_rules),
+            "min_support": self.min_support,
+            "min_confidence": self.min_confidence,
+            "metric": self.metric,
+            "best_execution_seconds": best_time,
+        }
+
+        experiment = {
+            "task": "association",
+            "target": None,
+            "scoring": self.metric,
+            "cv_strategy": "none",
+            "train_samples": len(data) if hasattr(data, "__len__") else None,
+            "test_samples": 0,
+            "split_strategy": "none",
+            "min_support": self.min_support,
+            "min_confidence": self.min_confidence,
+            "max_len": self.max_len,
+            "selected_model": winner,
+            "python_version": platform.python_version(),
+            "sklearn_version": sklearn.__version__,
+            "autodatamining_version": __version__,
+        }
+
+        selection_note = f"Selected {winner} as the fastest association rule mining algorithm."
+
+        return MiningResults(
+            task="association",
+            leaderboard=leaderboard,
+            best_model=None,
+            metrics=metrics,
+            selection_note=selection_note,
+            experiment=experiment,
+            model_name=winner,
+            frequent_itemsets=best_itemsets,
+            rules=best_rules,
         )
 
     def _metadata(self, task, X, y, scoring, cv_kind, train_rows, test_rows, split_strategy=None):

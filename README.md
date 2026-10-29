@@ -5,12 +5,20 @@ Dengan AutoDataMining, pengguna dapat memilih jenis tugas, menentukan kolom targ
 
 AutoDataMining mengintegrasikan algoritma yang tersedia di scikit-learn dan tidak menciptakan algoritma machine learning baru. Termasuk di dalamnya teknik ensemble seperti voting dan stacking untuk menggabungkan prediksi beberapa model. Hasil bergantung pada dataset, cara pembagian data, metrik, dan parameter yang digunakan; skor tinggi pada satu percobaan bukan jaminan performa yang sama pada data lain.
 
-> **Status: Alpha, versi pengembangan 0.1.2.** Versi 0.1.1 tersedia di PyPI; perubahan pada source ini belum dirilis. API masih dapat berubah.
+> **Versi 0.2.0.** Pustaka siap pakai untuk pendidikan, riset, dan publikasi ilmiah dengan dukungan No-Code GUI di Hugging Face Spaces.
 
 ## Fitur utama
 
 - Klasifikasi dan regresi dengan pemisahan data pelatihan dan data uji.
 - Pengelompokan data (clustering) dan deteksi anomali.
+- Penambangan aturan asosiasi (Association Rule Mining) dengan Apriori dan FP-Growth untuk analisis transaksi.
+- **Antarmuka Web Dashboard No-Code (GUI Interaktif)** berbasis Streamlit untuk Hugging Face Spaces dan penggunaan lokal (`python -m autodatamining.ui`).
+- Dataset edukasi bawaan (load_dataset) untuk pembelajaran instan tanpa perlu mencari atau mengunduh file CSV.
+- Modul praktikum interaktif Google Colab / Jupyter Notebooks di folder `notebooks/` untuk seluruh 5 pilar data mining.
+- Penyetelan hyperparameter otomatis (results.tune) untuk mengoptimalkan model terbaik.
+- Diagram alur pipeline visual (results.plot("pipeline")) untuk slide sidang skripsi dan publikasi.
+- Kesimpulan naratif otomatis (results.summary) dan ekspor tabel format skripsi / LaTeX (to_academic_table, to_latex).
+- Kamus konsep interaktif (explain_concept) untuk memahami konsep penting data mining.
 - Prapemrosesan numerik dan kategorikal yang dapat dikonfigurasi.
 - Perbandingan model scikit-learn (estimator) melalui tabel peringkat.
 - Ensemble bawaan dengan voting dan stacking untuk klasifikasi serta regresi.
@@ -33,6 +41,15 @@ Untuk memakai grafik dan visualisasi hasil:
 python -m pip install "autodatamining[visualization]"
 ~~~
 
+Untuk menjalankan Web Dashboard No-Code (GUI):
+
+~~~bash
+python -m pip install "autodatamining[ui]"
+python -m autodatamining.ui
+~~~
+
+Untuk deploy ke Hugging Face Spaces secara gratis, baca [Panduan Hugging Face Spaces](docs/huggingface-spaces.md).
+
 Untuk fitur SHAP opsional:
 
 ~~~bash
@@ -41,21 +58,22 @@ python -m pip install "autodatamining[explainability]"
 
 ## Cara penggunaan
 
-Contoh berikut membaca data CSV, memeriksa ringkasan data, melihat grafik diagnostik, lalu membandingkan model klasifikasi (classification). Ganti nama file dan kolom target sesuai dataset Anda.
+Contoh berikut membaca data (bisa menggunakan file CSV Anda sendiri atau `load_dataset` bawaan), memeriksa ringkasan data, melihat grafik diagnostik, lalu membandingkan model klasifikasi (classification):
 
 ~~~python
 import pandas as pd
-from autodatamining import AutoDataMining
+from autodatamining import AutoDataMining, load_dataset, explain_concept
 
-data = pd.read_csv("dataset.csv")
+# Gunakan dataset edukasi bawaan atau baca dari pd.read_csv("dataset.csv")
+data = load_dataset("kelulusan_mahasiswa")
 
 # Periksa jumlah baris/kolom, tipe data, nilai kosong, dan target.
-profile = AutoDataMining.profile(data, target="label")
+profile = AutoDataMining.profile(data, target="lulus_tepat_waktu")
 print(profile["potential_issues"])
 
 # Grafik diagnostik sebelum pelatihan. Perlu extra visualization.
 fig, axes = AutoDataMining.plot_preprocessing(
-    data, kind="overview", target="label"
+    data, kind="overview", target="lulus_tepat_waktu"
 )
 fig.savefig("ringkasan-data.png", dpi=150, bbox_inches="tight")
 
@@ -69,7 +87,7 @@ preprocessing = {
 
 results = AutoDataMining(
     task="classification",
-    target="label",
+    target="lulus_tepat_waktu",
     models=["logistic_regression", "random_forest"],
     test_size=0.2,
     cv=5,
@@ -78,10 +96,18 @@ results = AutoDataMining(
     preprocessing=preprocessing,
 ).fit(data)
 
-print(results.leaderboard)  # Peringkat model dan skor validasi silang
-print(results.metrics)      # Metrik data uji untuk model terpilih
-print(results.classification_report())
+print(results.leaderboard)        # Peringkat model dan skor validasi silang
+print(results.summary())          # Kesimpulan naratif otomatis & draf pembahasan skripsi
+print(results.to_academic_table())# Tabel format baku Bab IV Skripsi / Jurnal
+print(results.to_latex())         # Kode tabel LaTeX siap pakai di Overleaf
+print(results.metrics)            # Metrik data uji untuk model terpilih
 
+# Penyetelan hyperparameter otomatis model terbaik
+tuned = results.tune()
+print(tuned.summary())            # Evaluasi Sebelum vs Sesudah Tuning
+
+# Tampilkan diagram alur pipeline visual dan matriks kebingungan
+results.plot(kind="pipeline", show=True)
 results.plot(kind="confusion_matrix", show=True)
 results.report("laporan.html")
 results.to_csv("leaderboard.csv")
@@ -110,6 +136,7 @@ Untuk panduan pemula dengan contoh lengkap yang dapat dijalankan untuk semua jen
 | Regresi (regression) | Memprediksi nilai kontinu, misalnya harga | Ya |
 | Pengelompokan (clustering) | Mengelompokkan data tanpa label kelas | Tidak |
 | Anomali (anomaly) | Menemukan observasi yang tidak biasa | Tidak; label opsional untuk evaluasi |
+| Aturan Asosiasi (association) | Menemukan pola kemunculan bersama (misal: analisis keranjang belanja) | Tidak |
 
 Tentukan jenis tugas secara eksplisit bila tujuan analisis sudah diketahui. Mode otomatis hanya memilih klasifikasi atau regresi dari kolom target dan tidak akan memulai pengelompokan secara diam-diam.
 
@@ -162,6 +189,23 @@ results.plot(kind="anomalies", show=True)
 
 Tanpa label acuan (ground truth), jumlah atau persentase anomali yang ditemukan tidak dapat digunakan untuk menentukan kualitas model. Jika label tersedia, berikan nama kolomnya melalui target dan gunakan 1/True untuk anomali serta 0/False untuk data normal. Dalam mode berlabel, prediksi yang dikembalikan adalah prediksi pada data uji.
 
+### Aturan Asosiasi
+
+~~~python
+results = AutoDataMining(
+    task="association",
+    min_support=0.3,
+    min_confidence=0.6,
+).fit(transaksi)
+
+print(results.leaderboard)        # Perbandingan kecepatan FP-Growth vs Apriori
+print(results.frequent_itemsets) # Pola itemset yang sering muncul
+print(results.rules)             # Aturan antecedents -> consequents, support, confidence, lift
+results.plot(kind="rules", show=True)
+~~~
+
+Lihat [panduan aturan asosiasi](docs/aturan-asosiasi.md) untuk rumus lengkap dan contoh penggunaan standalone.
+
 ## Menggabungkan model dengan ensemble
 
 Pilih model gabungan langsung melalui parameter models. Tidak perlu mengimpor VotingClassifier atau StackingClassifier dari scikit-learn.
@@ -191,6 +235,7 @@ Lihat [panduan penggunaan Ensemble Learning](docs/ensemble-learning.md) untuk co
 | Regresi | Linear Regression, Ridge, Lasso, Decision Tree, Random Forest, Extra Trees, Gradient Boosting, HistGradientBoosting, KNN, SVR, voting, stacking | R² pada validasi silang data pelatihan |
 | Pengelompokan | K-Means, MiniBatch K-Means, DBSCAN, Agglomerative, Gaussian Mixture | Silhouette |
 | Anomali | Isolation Forest, Local Outlier Factor, One-Class SVM | F1 validasi silang jika label tersedia; tanpa label tidak ada peringkat kualitas |
+| Aturan Asosiasi | FP-Growth, Apriori | Kecepatan eksekusi (detik) dan jumlah aturan yang dihasilkan |
 
 Metrik klasifikasi pada data uji mencakup accuracy, balanced accuracy, precision, recall, dan F1 berbobot. ROC-AUC dan PR-AUC ditampilkan bila model dan data mendukungnya. Regresi melaporkan MAE, MSE, RMSE, dan R². Metrik pengelompokan hanya ditampilkan bila dapat dihitung.
 
@@ -259,10 +304,19 @@ Pilihan grafik meliputi ringkasan, heatmap nilai kosong, heatmap korelasi, distr
 ## Explainability, laporan, dan visualisasi hasil
 
 ~~~python
+# Dapatkan kesimpulan naratif cerdas dalam Bahasa Indonesia
+print(results.summary())  # atau results.kesimpulan()
+
 importance = results.explain(method="auto")
 ~~~
 
-Mode otomatis menggunakan feature importance bawaan model bila tersedia, atau permutation importance untuk tugas dengan label. SHAP memerlukan extra explainability. Feature importance menjelaskan perilaku model dan tidak membuktikan hubungan sebab-akibat. AutoDataMining tidak membuat feature importance untuk pengelompokan atau anomali tanpa dukungan model.
+Fungsi `results.summary()` menghasilkan kesimpulan terstruktur yang siap dikutip untuk bab pembahasan skripsi/paper ilmiah, meliputi:
+- Peringkat model terbaik dan alasan pemilihannya.
+- Analisis generalisasi dan deteksi *overfitting* (komparasi skor data latih vs data uji).
+- Interpretasi arti metrik (akurasi, presisi, recall, F1, R², MAE/RMSE, Silhouette, atau Lift) dalam kalimat bahasa manusia.
+- Draf paragraf pembahasan siap pakai.
+
+Mode otomatis pada `explain()` menggunakan feature importance bawaan model bila tersedia, atau permutation importance untuk tugas dengan label. SHAP memerlukan extra explainability. Feature importance menjelaskan perilaku model dan tidak membuktikan hubungan sebab-akibat. AutoDataMining tidak membuat feature importance untuk pengelompokan atau anomali tanpa dukungan model.
 
 Beberapa grafik hasil yang tersedia:
 
@@ -274,6 +328,7 @@ results.plot(kind="precision_recall_curve")    # Klasifikasi biner
 results.plot(kind="residuals")                 # Regresi
 results.plot(kind="clusters")                  # Pengelompokan
 results.plot(kind="anomalies")                 # Deteksi anomali
+results.plot(kind="rules")                     # Aturan asosiasi
 ~~~
 
 Laporan HTML memuat metadata eksperimen, metrik, tabel peringkat model, dan batasan evaluasi. Baris dataset tidak dimasukkan ke laporan.

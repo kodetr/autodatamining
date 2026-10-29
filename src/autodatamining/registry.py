@@ -101,6 +101,11 @@ class EstimatorRegistry:
 
     def get(self, name, task):
         key = str(name).strip().lower()
+        aliases = {
+            "local_outlier_factor": "lof",
+            "k_means": "kmeans",
+        }
+        key = aliases.get(key, key)
         index = (key, task)
         if index not in self._specs:
             if any(existing_name == key for existing_name, _ in self._specs):

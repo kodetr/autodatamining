@@ -5,7 +5,7 @@ import numpy as np
 from .exceptions import DataValidationError
 
 
-def plot_results(results, kind="leaderboard", ax=None, show=False):
+def plot_results(results, kind="leaderboard", ax=None, show=False, save_path=None):
     try:
         import matplotlib.pyplot as plt
         from sklearn.decomposition import PCA
@@ -20,7 +20,7 @@ def plot_results(results, kind="leaderboard", ax=None, show=False):
         _, ax = plt.subplots(figsize=(8, 4.5))
     if kind == "leaderboard":
         board = results.leaderboard
-        score_col = next((column for column in ("cv_score", "silhouette", "f1", "anomaly_rate")
+        score_col = next((column for column in ("cv_score", "silhouette", "f1", "anomaly_rate", "itemsets_count", "rules_count")
                           if column in board and board[column].notna().any()), None)
         if score_col is None:
             raise DataValidationError("leaderboard has no finite numeric scores to plot")
@@ -90,11 +90,82 @@ def plot_results(results, kind="leaderboard", ax=None, show=False):
         ax.set_title("Cluster projection" if kind == "clusters" else "Anomaly labels (-1 = anomaly)")
         if kind == "clusters":
             ax.figure.colorbar(scatter, ax=ax, label="Cluster label")
+    elif kind == "rules":
+        if results.task != "association" or results.rules is None or results.rules.empty:
+            raise DataValidationError("rules plots require an association run with non-empty rules")
+        scatter = ax.scatter(
+            results.rules["support"],
+            results.rules["confidence"],
+            c=results.rules["lift"],
+            cmap="viridis",
+            alpha=0.8,
+            s=60,
+        )
+        ax.set_xlabel("Support")
+        ax.set_ylabel("Confidence")
+        ax.set_title("Association Rules (Support vs. Confidence)")
+        ax.figure.colorbar(scatter, ax=ax, label="Lift")
+    elif kind == "pipeline":
+        from matplotlib.patches import FancyBboxPatch
+        ax.axis("off")
+        samples_info = f"Sampel: {results.experiment.get('train_samples', '-')}"
+        cv_info = str(results.experiment.get("cv_strategy", "5-Fold CV")).replace("_", " ").title()
+        model_display = str(results.model_name or "Estimator").replace("_", " ").title()
+        steps = [
+            ("1. Data Input", f"{results.task.title()}\n{samples_info}", "#e3f2fd", "#1565c0"),
+            ("2. Prapemrosesan", "Imputasi Median/Modus\nScaling & Encoding", "#e8f5e9", "#2e7d32"),
+            ("3. Validasi Silang", f"{cv_info}\nEvaluasi Metodologis", "#fff3e0", "#e65100"),
+            ("4. Model Terbaik", f"{model_display}\nPeringkat #1 Leaderboard", "#f3e5f5", "#7b1fa2"),
+            ("5. Output Prediksi", "Metrik Evaluasi Uji\nLaporan & Kesimpulan", "#fce4ec", "#c2185b"),
+        ]
+        n_steps = len(steps)
+        box_width = 0.16
+        box_height = 0.58
+        spacing = 0.20
+        start_x = 0.02
+        y = 0.20
+
+        for i, (title, desc, fill_color, border_color) in enumerate(steps):
+            x = start_x + i * spacing
+            box = FancyBboxPatch(
+                (x, y), box_width, box_height,
+                boxstyle="round,pad=0.015,rounding_size=0.03",
+                facecolor=fill_color,
+                edgecolor=border_color,
+                linewidth=1.8,
+                transform=ax.transAxes,
+            )
+            ax.add_patch(box)
+            ax.text(
+                x + box_width / 2, y + box_height - 0.12, title,
+                ha="center", va="center", weight="bold", fontsize=9.5, color=border_color,
+                transform=ax.transAxes,
+            )
+            ax.text(
+                x + box_width / 2, y + box_height / 2 - 0.08, desc,
+                ha="center", va="center", fontsize=8, color="#2d3748",
+                transform=ax.transAxes,
+            )
+            if i < n_steps - 1:
+                arrow_start_x = x + box_width + 0.005
+                arrow_end_x = start_x + (i + 1) * spacing - 0.005
+                arrow_y = y + box_height / 2
+                ax.annotate(
+                    "",
+                    xy=(arrow_end_x, arrow_y),
+                    xytext=(arrow_start_x, arrow_y),
+                    xycoords="axes fraction",
+                    textcoords="axes fraction",
+                    arrowprops=dict(arrowstyle="->", lw=2.0, color="#4a5568"),
+                )
+        ax.set_title(f"Diagram Alur Pipeline AutoDataMining ({results.task.title()})", fontsize=11.5, pad=12, weight="bold")
     else:
         raise DataValidationError(
             "kind must be 'leaderboard', 'confusion_matrix', 'residuals', 'roc_curve', "
-            "'precision_recall_curve', 'clusters', or 'anomalies'"
+            "'precision_recall_curve', 'clusters', 'anomalies', 'rules', or 'pipeline'"
         )
+    if save_path:
+        ax.figure.savefig(save_path, dpi=150, bbox_inches="tight")
     if show:
         plt.show()
     return ax

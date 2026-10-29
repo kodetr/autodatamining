@@ -1,274 +1,327 @@
-# Panduan Mudah Menggunakan AutoDataMining
+# Panduan Lengkap AutoDataMining untuk Mahasiswa & Peneliti
 
-Panduan ini menunjukkan alur dasar menggunakan AutoDataMining untuk menyiapkan data,
-memeriksa grafik, membandingkan model, membuat prediksi, dan menyimpan model. Contoh utama
-menggunakan dataset sintetis supaya bisa dicoba tanpa mengunduh file data.
+Selamat datang di panduan resmi **AutoDataMining**! Pustaka ini dirancang agar proses penambangan data (*data mining*) dan pembelajaran mesin (*machine learning*) menjadi **intuitif, cepat, bebas kesalahan metodologis (*zero data leakage*), serta langsung siap untuk penulisan skripsi, tesis, dan publikasi jurnal ilmiah**.
+
+---
+
+## Daftar Isi
+1. [Instalasi](#1-instalasi)
+2. [Dataset Edukasi Bawaan (Langsung Praktik)](#2-dataset-edukasi-bawaan-langsung-praktik)
+3. [Klasifikasi: Prediksi Kelulusan Mahasiswa](#3-klasifikasi-prediksi-kelulusan-mahasiswa)
+4. [Regresi: Prediksi Harga Rumah](#4-regresi-prediksi-harga-rumah)
+5. [Clustering: Segmentasi Profil Nasabah Bank](#5-clustering-segmentasi-profil-nasabah-bank)
+6. [Aturan Asosiasi: Market Basket Analysis](#6-aturan-asosiasi-market-basket-analysis)
+7. [Deteksi Anomali: Deteksi Transaksi Mencurigakan (Fraud)](#7-deteksi-anomali-deteksi-transaksi-mencurigakan-fraud)
+8. [Automated Hyperparameter Tuning (`results.tune()`)](#8-automated-hyperparameter-tuning-resultstune)
+9. [Fitur Publikasi Skripsi & LaTeX Otomatis](#9-fitur-publikasi-skripsi--latex-otomatis)
+10. [Kamus Konsep Interaktif (`explain_concept`)](#10-kamus-konsep-interaktif-explain_concept)
+11. [Modul Praktikum Google Colab / Jupyter Notebooks](#11-modul-praktikum-google-colab--jupyter-notebooks)
+
+---
 
 ## 1. Instalasi
 
-Untuk memakai library beserta grafik:
+Untuk menggunakan library beserta fitur visualisasi grafik dan flowchart pipeline:
 
 ```bash
 python -m pip install "autodatamining[visualization]"
 ```
 
-Untuk pengembangan dari folder source:
-
+Jika mengembangkan langsung dari source repository:
 ```bash
 python -m pip install -e ".[visualization]"
 ```
 
-## 2. Siapkan dan periksa data
+---
 
-Data diberikan sebagai `pandas.DataFrame`. Setiap baris adalah satu observasi dan setiap kolom
-adalah fitur atau target. Pada classification dan regression, target adalah kolom yang ingin
-diprediksi.
+## 2. Dataset Edukasi Bawaan (Langsung Praktik)
+
+Salah satu kesulitan terbesar pemula dan mahasiswa adalah mencari file dataset CSV yang bersih dan cocok untuk algoritma tertentu. AutoDataMining menyelesaikan masalah ini dengan menyediakan fungsi `load_dataset()`:
 
 ```python
-import pandas as pd
-from autodatamining import AutoDataMining
+from autodatamining import load_dataset, list_datasets
 
-data = pd.read_csv("dataset.csv")
-
-# Lihat ukuran data, tipe kolom, nilai kosong, dan kemungkinan masalah.
-profile = AutoDataMining.profile(data, target="label")
-print(profile["rows"], profile["columns"])
-print(profile["column_details"])
-print(profile["potential_issues"])
+print("Daftar dataset bawaan:", list_datasets())
+# Output: ['kelulusan_mahasiswa', 'harga_rumah', 'segmentasi_nasabah', 'keranjang_belanja', 'deteksi_penipuan']
 ```
 
-Nama `label` pada contoh adalah nama kolom target. Ganti dengan nama kolom target dataset Anda.
-Untuk clustering dan anomaly detection tanpa label, tidak perlu menentukan kolom target.
+Semua dataset di atas bekerja **100% offline** tanpa perlu mengunduh file dari internet. Tinjau [Katalog Dataset Edukasi](dataset-edukasi.md) untuk detail setiap kolom.
 
-## 3. Lihat grafik sebelum training
+---
 
-Fungsi ini membantu memeriksa nilai kosong, korelasi, distribusi fitur, outlier potensial, dan
-distribusi target. Grafik dibuat dari data masukan sebelum preprocessing.
+## 3. Klasifikasi: Prediksi Kelulusan Mahasiswa
 
+### Studi Kasus
+Diberikan data akademik mahasiswa (`ipk`, `sks_semester_4`, `kehadiran_persen`, `ikut_organisasi`). Tentukan apakah mahasiswa akan lulus tepat waktu (`lulus_tepat_waktu`: `"Ya"` / `"Tidak"`).
+
+### Kode Lengkap:
 ```python
-from autodatamining import AutoDataMining
+from autodatamining import AutoDataMining, load_dataset
 
-fig, axes = AutoDataMining.plot_preprocessing(
-    data,
-    kind="overview",
-    target="label",
-)
-fig.savefig("ringkasan-data.png", dpi=150, bbox_inches="tight")
+# 1. Muat dataset edukasi
+data = load_dataset("kelulusan_mahasiswa")
+print(data.head())
 
-# Pilih grafik lain bila diperlukan.
-fig, ax = AutoDataMining.plot_preprocessing(data, kind="missing_heatmap", target="label")
-fig.savefig("nilai-kosong.png", dpi=150, bbox_inches="tight")
+# 2. Periksa profil data (nilai kosong, kardinalitas, potensi masalah)
+profil = AutoDataMining.profile(data, target="lulus_tepat_waktu")
+print("Potensi masalah data:", profil["potential_issues"])
 
-fig, ax = AutoDataMining.plot_preprocessing(data, kind="correlation", target="label")
-fig.savefig("korelasi.png", dpi=150, bbox_inches="tight")
-```
-
-Pilihan `kind` lainnya adalah `distributions`, `outliers`, `target`, dan `heatmap`. Grafik `target`
-memerlukan argumen `target="nama_kolom"`. Lihat daftar lengkap dan keterangan grafik di
-[panduan preprocessing](preprocessing.md).
-
-## 4. Contoh classification lengkap
-
-Contoh ini membuat data latihan dengan fitur numerik, fitur kategori, dan satu nilai numerik yang
-kosong. Preprocessing akan mengisi nilai kosong dan mengubah fitur kategori di dalam pipeline.
-
-```python
-import numpy as np
-import pandas as pd
-from sklearn.datasets import make_classification
-from autodatamining import AutoDataMining
-
-X, y = make_classification(
-    n_samples=180,
-    n_features=6,
-    n_informative=4,
-    n_redundant=0,
-    random_state=42,
-)
-data = pd.DataFrame(X, columns=[f"fitur_{i}" for i in range(X.shape[1])])
-data["jenis"] = np.where(data["fitur_0"] > 0, "tinggi", "rendah")
-data.loc[0, "fitur_1"] = np.nan
-data["label"] = y
-
-preprocessing = {
-    "numeric_imputer": "median",
-    "numeric_scaler": "robust",
-    "categorical_imputer": "most_frequent",
-    "categorical_encoder": "onehot",
-}
-
+# 3. Jalankan AutoML Klasifikasi
 results = AutoDataMining(
     task="classification",
-    target="label",
-    models=["logistic_regression", "random_forest"],
-    test_size=0.2,
-    cv=3,
-    random_state=42,
+    target="lulus_tepat_waktu",
     scoring="f1_weighted",
-    preprocessing=preprocessing,
-).fit(data)
-
-print(results.leaderboard)  # peringkat model dan skor CV
-print(results.metrics)      # metrik holdout untuk model terpilih
-print(results.classification_report())
-
-results.plot(kind="confusion_matrix", show=True)
-results.report("laporan-klasifikasi.html")
-results.to_csv("peringkat-model.csv")
-```
-
-Untuk dataset CSV milik Anda, ganti pembuatan `X`, `y`, dan `data` dengan `pd.read_csv(...)`, lalu
-sesuaikan `target` dengan nama kolom label. `results.predict(...)` menerima DataFrame fitur tanpa
-kolom target:
-
-```python
-data_baru = pd.read_csv("data-baru.csv")
-prediksi = results.predict(data_baru)
-print(prediksi)
-```
-
-`data-baru.csv` harus memiliki nama kolom fitur yang sama seperti data training. Urutan kolom boleh
-berbeda.
-
-### Menggabungkan model tanpa import estimator scikit-learn
-
-Pilih `voting` atau `stacking` pada parameter `models`; tidak perlu mengimpor VotingClassifier atau
-StackingClassifier sendiri. AutoDataMining menyiapkan model dasar dan menggabungkan prediksinya di
-dalam pipeline.
-
-```python
-results = AutoDataMining(
-    task="classification",
-    target="label",
-    models=["voting", "stacking"],
     cv=5,
     random_state=42,
 ).fit(data)
 
+# 4. Lihat Peringkat Algoritma (Leaderboard)
 print(results.leaderboard)
+
+# 5. Baca Kesimpulan Naratif Otomatis (Bahasa Indonesia)
+print(results.summary())
+
+# 6. Salin Tabel Hasil Penelitian untuk Bab IV Skripsi
+print(results.to_academic_table())
+
+# 7. Tampilkan Visualisasi Flowchart Pipeline & Confusion Matrix
+results.plot(kind="pipeline", save_path="pipeline_klasifikasi.png")
+results.plot(kind="confusion_matrix", save_path="confusion_matrix.png")
+
+# 8. Simpan Model Pipeline Lengkap (Preprocessing + Model)
+results.save("model_kelulusan.joblib")
 ```
 
-Untuk klasifikasi, voting menggunakan soft voting dan stacking mempelajari model akhir untuk
-menggabungkan prediksi. Pada regresi, pilihan yang sama memakai VotingRegressor dan
-StackingRegressor. Keduanya dibandingkan sebagai kandidat terpisah; model gabungan terbaik dipilih
-dengan skor validasi silang. Untuk contoh regresi, pengaturan model dasar, dan penjelasan hasil yang
-lebih lengkap, baca [panduan Ensemble Learning](ensemble-learning.md).
+---
 
-## 5. Contoh regression
+## 4. Regresi: Prediksi Harga Rumah
 
-Pakai `task="regression"` saat target berupa nilai kontinu, misalnya harga, suhu, atau durasi.
+### Studi Kasus
+Memperkirakan harga jual rumah (`harga_juta`) berdasarkan `luas_tanah`, `luas_bangunan`, `kamar_tidur`, dan `jarak_pusat_kota_km`.
 
+### Kode Lengkap:
 ```python
-import pandas as pd
-from sklearn.datasets import make_regression
-from autodatamining import AutoDataMining
+from autodatamining import AutoDataMining, load_dataset
 
-X, y = make_regression(n_samples=180, n_features=6, noise=12, random_state=42)
-data = pd.DataFrame(X, columns=[f"fitur_{i}" for i in range(X.shape[1])])
-data["harga"] = y
+# 1. Muat data harga rumah
+data = load_dataset("harga_rumah")
 
+# 2. Latih berbagai estimator regresi (Linear, Ridge, Lasso, Random Forest, Gradient Boosting, dll.)
 results = AutoDataMining(
     task="regression",
-    target="harga",
-    models=["ridge", "random_forest"],
-    cv=3,
+    target="harga_juta",
+    scoring="r2",
+    cv=5,
     random_state=42,
 ).fit(data)
 
-print(results.leaderboard[["model", "cv_score", "mae", "rmse", "r2", "status"]])
-results.plot(kind="residuals", show=True)
+# 3. Peringkat Model & Metrik Holdout
+print(results.leaderboard)
+print("Metrik Data Uji (R², MAE, RMSE):", results.metrics)
+
+# 4. Kesimpulan Naratif
+print(results.summary())
+
+# 5. Diagram Residuals (Analisis Galat Prediksi)
+results.plot(kind="residuals", save_path="residual_regresi.png")
+
+# 6. Ekspor Kode Tabel LaTeX Siap Pakai di Overleaf
+print(results.to_latex())
 ```
 
-## 6. Contoh clustering
+---
 
-Clustering mencari kelompok pada fitur tanpa membutuhkan target. Contoh ini membuat data yang
-memiliki tiga kelompok.
+## 5. Clustering: Segmentasi Profil Nasabah Bank
 
+### Studi Kasus
+Mengelompokkan nasabah perbankan secara alami (*unsupervised*) berdasarkan `usia`, `pendapatan_tahunan_juta`, `skor_pengeluaran_1_100`, dan `saldo_rekening_juta`.
+
+### Kode Lengkap:
 ```python
 import pandas as pd
-from sklearn.datasets import make_blobs
-from autodatamining import AutoDataMining
+from autodatamining import AutoDataMining, load_dataset
 
-X, _ = make_blobs(n_samples=150, centers=3, random_state=42)
-features = pd.DataFrame(X, columns=["ukuran_1", "ukuran_2"])
+# 1. Muat dataset nasabah
+data = load_dataset("segmentasi_nasabah")
 
+# 2. Jalankan algoritma clustering (K-Means, Agglomerative, DBSCAN)
 results = AutoDataMining(
     task="clustering",
-    models=["kmeans", "agglomerative"],
-    random_state=42,
-).fit(features)
-
-print(results.leaderboard)
-features["cluster"] = results.labels
-print(features.head())
-results.plot(kind="clusters", show=True)
-```
-
-Skor silhouette, Davies–Bouldin, dan Calinski–Harabasz adalah ukuran internal clustering, bukan
-akurasi terhadap label sebenarnya. Jika memakai DBSCAN, label `-1` menunjukkan noise.
-
-## 7. Contoh anomaly detection
-
-Tanpa label anomali, library menandai observasi yang dianggap tidak biasa. Label hasil `-1`
-menunjukkan anomali dan `+1` menunjukkan data normal.
-
-```python
-import numpy as np
-import pandas as pd
-from autodatamining import AutoDataMining
-
-rng = np.random.RandomState(42)
-normal = rng.normal(size=(140, 2))
-anomali = rng.uniform(low=-6, high=6, size=(12, 2))
-data = pd.DataFrame(
-    np.vstack([normal, anomali]),
-    columns=["pengukuran_1", "pengukuran_2"],
-)
-
-results = AutoDataMining(
-    task="anomaly",
-    models=["isolation_forest", "lof"],
+    models=["kmeans", "agglomerative", "dbscan"],
     random_state=42,
 ).fit(data)
 
-print(results.leaderboard[["model", "anomaly_count", "anomaly_rate", "status"]])
-data["hasil_deteksi"] = results.labels
-print(data[data["hasil_deteksi"] == -1])
-results.plot(kind="anomalies", show=True)
+# 3. Bandingkan kualitas klaster (Silhouette Score, Calinski-Harabasz, Davies-Bouldin)
+print(results.leaderboard)
+
+# 4. Analisis Profil Tiap Klaster (Insight Bisnis)
+data_hasil = data.copy()
+data_hasil["klaster"] = results.labels
+print("\nProfil Rata-rata Tiap Kelompok Nasabah:")
+print(data_hasil.groupby("klaster").mean().round(2))
+
+# 5. Visualisasi Klaster dalam 2D (PCA Projection)
+results.plot(kind="clusters", save_path="visualisasi_klaster.png")
 ```
 
-Tanpa label ground truth, jumlah atau persentase anomali yang ditemukan bukan skor kualitas model.
-Jika label tersedia, tambahkan ke DataFrame dan berikan `target="nama_kolom_label"`; gunakan `1`
-untuk anomali dan `0` untuk normal. Dalam mode berlabel, `results.labels` berisi prediksi pada
-holdout.
+---
 
-## 8. Simpan dan muat model
+## 6. Aturan Asosiasi: Market Basket Analysis
 
-Pipeline tersimpan mencakup preprocessing yang sudah dipelajari dan model terpilih.
+### Studi Kasus
+Menemukan kombinasi belanjaan yang sering dibeli bersamaan dari struk belanja supermarket menggunakan algoritma **Apriori** dan **FP-Growth**.
+
+### Kode Lengkap:
+```python
+from autodatamining import (
+    AutoDataMining,
+    load_dataset,
+    TransactionEncoder,
+    fpgrowth,
+    association_rules,
+)
+
+# 1. Muat dataset transaksi belanja
+transaksi = load_dataset("keranjang_belanja")
+
+# 2. Cara Cepat: Menggunakan AutoDataMining
+results = AutoDataMining(
+    task="association",
+    min_support=0.2,     # Muncul minimal di 20% total transaksi
+    min_confidence=0.5,  # Tingkat kepastian aturan minimal 50%
+).fit(transaksi)
+
+print("Aturan Asosiasi Terkuat:")
+print(results.rules[["antecedents", "consequents", "support", "confidence", "lift"]].head(10))
+
+# 3. Visualisasi Scatter Plot Aturan Asosiasi (Support vs Confidence diberi warna Lift)
+results.plot(kind="rules", save_path="aturan_asosiasi.png")
+```
+
+---
+
+## 7. Deteksi Anomali: Deteksi Transaksi Mencurigakan (Fraud)
+
+### Studi Kasus
+Mengidentifikasi transaksi kartu/perbankan yang mencurigakan (*outlier / fraud*) dari atribut nominal, jam transaksi, jarak, dan frekuensi.
+
+### Kode Lengkap:
+```python
+from autodatamining import AutoDataMining, load_dataset
+
+# 1. Muat data transaksi
+data = load_dataset("deteksi_penipuan")
+
+# 2. Bandingkan metode deteksi anomali (Isolation Forest, One-Class SVM, LOF)
+results = AutoDataMining(
+    task="anomaly",
+    models=["isolation_forest", "one_class_svm", "lof"],
+    random_state=42,
+).fit(data)
+
+print(results.leaderboard)
+
+# 3. Identifikasi data anomali (Label: -1 = Anomali, 1 = Normal)
+data["status"] = ["Anomali (Fraud)" if l == -1 else "Normal" for l in results.labels]
+print(data["status"].value_counts())
+
+# Tampilkan transaksi anomali yang terjaring
+anomali = data[data["status"] == "Anomali (Fraud)"]
+print(anomali.head())
+
+# 4. Kesimpulan Naratif
+print(results.summary())
+```
+
+---
+
+## 8. Automated Hyperparameter Tuning (`results.tune()`)
+
+Setelah AutoDataMining menemukan model terbaik dari leaderboard, Anda dapat mengoptimalkan parameter model tersebut menggunakan `results.tune()`:
 
 ```python
-results.save("model.joblib")
+# Lakukan tuning otomatis pada model terbaik
+tuned = results.tune(method="random", n_iter=8, cv=3)
+
+# 1. Cetak ringkasan perbandingan sebelum vs sesudah
+print(tuned.summary())
+
+# 2. Lihat tabel kenaikan skor & parameter optimal
+print(tuned.comparison)
+print("Parameter terbaik:", tuned.best_params)
+
+# 3. Gunakan pipeline yang sudah dioptimalkan untuk memprediksi data baru
+prediksi = tuned.predict(data_baru)
 ```
 
-Muat model saat diperlukan:
+> [!TIP]
+> **Bebas Data Leakage:** `results.tune()` hanya menjalankan validasi silang pada data pelatihan (*train set*) dan mengevaluasi hasil akhir pada data uji (*test holdout*). Ini menjamin objektivitas penelitian ilmiah Anda.
+
+---
+
+## 9. Fitur Publikasi Skripsi & LaTeX Otomatis
+
+AutoDataMining dirancang khusus untuk memangkas waktu pembuatan laporan skripsi:
+
+### A. Tabel Bab IV Skripsi Baku (`results.to_academic_table()`)
+Menghasilkan tabel markdown rapi berisi Peringkat, Algoritma, Nilai Rata-rata Validasi Silang (Mean ± Std), Skor Data Uji, dan Waktu Eksekusi:
+```python
+print(results.to_academic_table())
+```
+*Hasil:*
+| Peringkat | Algoritma | CV Data Latih | Skor Data Uji (Accuracy) | Waktu | Status |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Decision Tree | 0.8948 ± 0.030 | 0.9167 | 0.004s | ok |
+| 2 | Gradient Boosting | 0.8945 ± 0.035 | 0.9167 | 0.037s | ok |
+| ... | ... | ... | ... | ... | ... |
+
+### B. Kode Tabel LaTeX Siap Salin (`results.to_latex()`)
+Langsung tempel ke editor Overleaf atau naskah IEEE/SINTA:
+```python
+print(results.to_latex())
+```
+
+### C. Draf Pembahasan Skripsi Otomatis (`results.summary()`)
+Menghasilkan analisis naratif siap kutip:
+```text
+"Berdasarkan pengujian komparatif beberapa algoritma klasifikasi, model decision_tree
+menunjukkan performa terbaik dengan akurasi sebesar 91.7% pada data pengujian.
+Evaluasi validasi silang mengonfirmasi stabilitas model tanpa indikasi overfitting yang signifikan,
+sehingga model decision_tree direkomendasikan sebagai model akhir dalam penelitian ini."
+```
+
+---
+
+## 10. Kamus Konsep Interaktif (`explain_concept`)
+
+Jika Anda atau mahasiswa Anda bingung mengenai makna istilah machine learning, gunakan fungsi `explain_concept()`:
 
 ```python
-import pandas as pd
-from autodatamining import load_model
+from autodatamining import explain_concept, list_concepts
 
-model = load_model("model.joblib")
-data_baru = pd.read_csv("data-baru.csv")
-prediksi = model.predict(data_baru)
+# Lihat daftar konsep yang tersedia
+print(list_concepts())
+
+# Minta penjelasan konsep
+print(explain_concept("cross_validation"))
+print(explain_concept("overfitting"))
+print(explain_concept("lift"))
 ```
 
-Muat hanya file model dari sumber tepercaya karena file joblib/pickle dapat menjalankan kode saat
-dibuka. Versi scikit-learn yang berbeda dapat memengaruhi kompatibilitas.
+Setiap penjelasan mencakup:
+1. **Definisi Formal:** Teori matematis yang lugas.
+2. **Analogi Sehari-hari:** Contoh nyata yang mudah dicerna akal sehat.
+3. **Tips Praktis untuk Skripsi/Riset:** Rekomendasi konkret dalam penulisan ilmiah.
 
-## Memahami hasil
+---
 
-- `results.leaderboard` membandingkan model yang diminta dan menunjukkan status atau error per model.
-- `cv_score` digunakan untuk memilih model dari fold training jika cross-validation tersedia.
-- `results.metrics` berisi evaluasi holdout model terpilih; holdout tidak dipakai untuk memilih model.
-- Skor tinggi pada satu dataset tidak menjamin performa yang sama pada data baru.
-- Untuk langkah preprocessing lain atau transformer scikit-learn kustom, baca
-  [panduan preprocessing](preprocessing.md).
+## 11. Modul Praktikum Google Colab / Jupyter Notebooks
+
+Untuk kegiatan praktikum di laboratorium kampus atau belajar mandiri, folder [`notebooks/`](../notebooks) telah menyediakan 5 modul interaktif siap pakai:
+1. `01_Praktikum_Klasifikasi.ipynb`
+2. `02_Praktikum_Regresi.ipynb`
+3. `03_Praktikum_Clustering.ipynb`
+4. `04_Praktikum_Aturan_Asosiasi.ipynb`
+5. `05_Praktikum_Deteksi_Anomali.ipynb`
+
+Notebook dapat langsung diunggah ke [Google Colab](https://colab.research.google.com/) atau dijalankan secara lokal dengan `jupyter notebook`.

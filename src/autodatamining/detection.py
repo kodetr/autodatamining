@@ -67,12 +67,17 @@ def detect_task(target):
 
 def resolve_task(task, target):
     """Resolve explicit or automatic task; never silently choose unsupervised learning."""
-    aliases = {"anomaly_detection": "anomaly", "outlier_detection": "anomaly"}
+    aliases = {
+        "anomaly_detection": "anomaly",
+        "outlier_detection": "anomaly",
+        "association_rules": "association",
+        "association_rule_mining": "association",
+    }
     task = aliases.get(task, task)
     if task != "auto":
         if task in {"classification", "regression"} and target is None:
             raise DataValidationError(f"target is required for {task}")
-        if task in {"clustering", "anomaly"}:
+        if task in {"clustering", "anomaly", "association"}:
             return task
         if task not in {"classification", "regression"}:
             raise DataValidationError(f"unsupported task: {task}")
