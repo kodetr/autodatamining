@@ -34,7 +34,6 @@ from autodatamining import (
 # Konfigurasi Halaman Streamlit
 st.set_page_config(
     page_title="AutoDataMining Studio - No-Code GUI",
-    page_icon="🚀",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -86,7 +85,7 @@ st.markdown(
 st.markdown(
     """
     <div class="main-header">
-        <h1>🚀 AutoDataMining Studio</h1>
+        <h1>AutoDataMining Studio</h1>
         <p>Platform No-Code Interaktif untuk Pembelajaran Data Mining, Riset, dan Penyusunan Skripsi</p>
     </div>
     """,
@@ -105,7 +104,7 @@ if "task_type" not in st.session_state:
 
 # Sidebar: Sumber Data & Pengaturan
 with st.sidebar:
-    st.header("⚙️ Konfigurasi Data & Tugas")
+    st.header("Konfigurasi Data & Tugas")
     
     data_source = st.radio(
         "Pilih Sumber Dataset:",
@@ -158,7 +157,7 @@ with st.sidebar:
                 st.error(f"Gagal membaca file: {e}")
 
     st.markdown("---")
-    st.subheader("🎯 Pemilihan Tugas Data Mining")
+    st.subheader("Pemilihan Tugas Data Mining")
     
     task_options = ["classification", "regression", "clustering", "association", "anomaly"]
     task_labels = {
@@ -200,7 +199,7 @@ with st.sidebar:
         min_conf = st.slider("Minimum Confidence (Tingkat Kepastian):", 0.1, 1.0, 0.5, 0.05)
 
     st.markdown("---")
-    run_btn = st.button("🚀 Jalankan Penambangan Data Sekarang", type="primary", use_container_width=True)
+    run_btn = st.button("Jalankan Penambangan Data Sekarang", type="primary", use_container_width=True)
 
 # Simpan dataset ke session state jika baru
 if raw_data is not None:
@@ -211,7 +210,7 @@ if run_btn:
     if st.session_state.df is None:
         st.warning("Silakan pilih dataset bawaan atau unggah file CSV terlebih dahulu!")
     else:
-        with st.spinner("⏳ Menjalankan algoritma data mining dan perbandingan model otomatis..."):
+        with st.spinner("Menjalankan algoritma data mining dan perbandingan model otomatis..."):
             try:
                 data_input = st.session_state.df
                 st.session_state.tuned_results = None  # Reset tuning sebelumnya
@@ -242,20 +241,20 @@ if run_btn:
                     ).fit(data_input)
                     
                 st.session_state.results = results
-                st.success("🎉 Penambangan data selesai! Lihat hasil lengkap pada tab di bawah.")
+                st.success("Penambangan data selesai! Lihat hasil lengkap pada tab di bawah.")
             except Exception as exc:
                 st.error(f"Terjadi kesalahan saat pemrosesan: {exc}")
                 st.code(traceback.format_exc())
 
 # Tampilan Konten Utama Berbasis Tab
 tab_data, tab_leaderboard, tab_viz, tab_summary, tab_tuning, tab_export, tab_predict = st.tabs([
-    "📊 1. Eksplorasi Data",
-    "🏆 2. Peringkat Model",
-    "📈 3. Visualisasi Grafik",
-    "📝 4. Kesimpulan Ilmiah",
-    "⚡ 5. Auto Tuning",
-    "🎓 6. Ekspor Skripsi / LaTeX",
-    "🔮 7. Uji Prediksi Langsung",
+    "1. Eksplorasi Data",
+    "2. Peringkat Model",
+    "3. Visualisasi Grafik",
+    "4. Kesimpulan Ilmiah",
+    "5. Auto Tuning",
+    "6. Ekspor Skripsi / LaTeX",
+    "7. Uji Prediksi Langsung",
 ])
 
 # ----------------- TAB 1: EKSPLORASI DATA -----------------
@@ -275,7 +274,7 @@ with tab_data:
             st.markdown("##### 10 Baris Pertama Data:")
             st.dataframe(df.head(10), use_container_width=True)
             
-            with st.expander("🔍 Informasi Tipe Data & Statistik Deskriptif"):
+            with st.expander("Informasi Tipe Data & Statistik Deskriptif"):
                 col_d1, col_d2 = st.columns(2)
                 with col_d1:
                     st.write("**Tipe Kolom:**")
@@ -322,27 +321,27 @@ with tab_leaderboard:
         
         csv_data = results.leaderboard.to_csv(index=False).encode("utf-8")
         st.download_button(
-            "📥 Unduh Tabel Leaderboard (.csv)",
+            "Unduh Tabel Leaderboard (.csv)",
             csv_data,
             f"leaderboard_{results.task}.csv",
             "text/csv",
         )
     else:
-        st.info("Tekan tombol **'🚀 Jalankan Penambangan Data Sekarang'** pada bilah sisi untuk melihat perbandingan model.")
+        st.info("Tekan tombol **'Jalankan Penambangan Data Sekarang'** pada bilah sisi untuk melihat perbandingan model.")
 
 # ----------------- TAB 3: VISUALISASI GRAFIK -----------------
 with tab_viz:
-    st.subheader("📈 Visualisasi Diagnostik & Arsitektur Pipeline")
+    st.subheader("Visualisasi Diagnostik & Arsitektur Pipeline")
     results = st.session_state.results
     if results is not None:
         # 1. Pilihan Model untuk Evaluasi (Jika Classification / Regression)
         if results.task in {"classification", "regression"}:
             model_options = list(results.leaderboard["model"].unique())
             selected_model = st.selectbox(
-                "🎯 Pilih Algoritma yang Ingin Dilihat Evaluasi Grafiknya:",
+                "Pilih Algoritma yang Ingin Dilihat Evaluasi Grafiknya:",
                 model_options,
                 index=0,
-                format_func=lambda x: f"{x.upper()} {'(🏆 Pemenang Leaderboard)' if x == results.model_name else ''}",
+                format_func=lambda x: f"{x.upper()} {'(Pemenang Leaderboard)' if x == results.model_name else ''}",
             )
         else:
             selected_model = results.model_name
@@ -351,7 +350,7 @@ with tab_viz:
         
         # 2. Grafik Diagnostik Spesifik Sesuai Pilar Tugas
         if results.task == "classification":
-            st.markdown(f"#### 🎯 Evaluasi Model: `{selected_model.upper()}`")
+            st.markdown(f"#### Evaluasi Model: `{selected_model.upper()}`")
             col_v1, col_v2 = st.columns(2)
             with col_v1:
                 st.write("**Matriks Kebingungan (Confusion Matrix):**")
@@ -366,7 +365,7 @@ with tab_viz:
                     st.warning(f"Tidak dapat menggambar matriks kebingungan: {e}")
                 finally:
                     plt.close(fig_cm)
-                st.info("💡 **Cara Membaca:** Kotak diagonal (kiri-atas dan kanan-bawah) menunjukkan prediksi yang **BENAR**. Kotak di luar diagonal menunjukkan kesalahan prediksi (*False Positives / False Negatives*).")
+                st.info("**Cara Membaca:** Kotak diagonal (kiri-atas dan kanan-bawah) menunjukkan prediksi yang **BENAR**. Kotak di luar diagonal menunjukkan kesalahan prediksi (*False Positives / False Negatives*).")
 
             with col_v2:
                 st.write("**Kurva ROC (Receiver Operating Characteristic):**")
@@ -387,10 +386,10 @@ with tab_viz:
                         pass
                 finally:
                     plt.close(fig_roc)
-                st.info("💡 **Cara Membaca:** Garis kurva yang semakin mendekati sudut kiri-atas menunjukkan kemampuan model yang semakin sempurna dalam membedakan kelas.")
+                st.info("**Cara Membaca:** Garis kurva yang semakin mendekati sudut kiri-atas menunjukkan kemampuan model yang semakin sempurna dalam membedakan kelas.")
 
         elif results.task == "regression":
-            st.markdown(f"#### 🎯 Evaluasi Model: `{selected_model.upper()}`")
+            st.markdown(f"#### Evaluasi Model: `{selected_model.upper()}`")
             col_r1, col_r2 = st.columns(2)
             with col_r1:
                 st.write("**Plot Residual (Sebaran Galat Error):**")
@@ -405,7 +404,7 @@ with tab_viz:
                     st.warning(f"Gagal menggambar residual: {e}")
                 finally:
                     plt.close(fig_res)
-                st.info("💡 **Cara Membaca:** Titik-titik yang menyebar acak dan merata di sekitar garis horizontal 0 menunjukkan model yang sehat dan bebas bias (*homoskedastis*).")
+                st.info("**Cara Membaca:** Titik-titik yang menyebar acak dan merata di sekitar garis horizontal 0 menunjukkan model yang sehat dan bebas bias (*homoskedastis*).")
 
             with col_r2:
                 st.write("**Scatter Plot Nilai Aktual vs Prediksi:**")
@@ -435,10 +434,10 @@ with tab_viz:
                     st.warning(f"Gagal menggambar scatter prediksi: {e}")
                 finally:
                     plt.close(fig_avp)
-                st.info("💡 **Cara Membaca:** Semakin dekat titik-titik data ke garis putus-putus merah ($y=x$), semakin presisi prediksi model.")
+                st.info("**Cara Membaca:** Semakin dekat titik-titik data ke garis putus-putus merah ($y=x$), semakin presisi prediksi model.")
 
         elif results.task == "clustering":
-            st.markdown("#### 🔍 Evaluasi Sebaran Klaster")
+            st.markdown("#### Evaluasi Sebaran Klaster")
             col_c1, col_c2 = st.columns(2)
             with col_c1:
                 st.write("**Proyeksi 2D Klaster (PCA):**")
@@ -458,7 +457,7 @@ with tab_viz:
                 plt.close(fig_lb)
 
         elif results.task == "association":
-            st.markdown("#### 🛒 Evaluasi Aturan Asosiasi Transaksi")
+            st.markdown("#### Evaluasi Aturan Asosiasi Transaksi")
             col_a1, col_a2 = st.columns(2)
             with col_a1:
                 st.write("**Scatter Plot Aturan (Support vs Confidence vs Lift):**")
@@ -478,7 +477,7 @@ with tab_viz:
                 plt.close(fig_lb)
 
         elif results.task == "anomaly":
-            st.markdown("#### 🚨 Evaluasi Deteksi Anomali")
+            st.markdown("#### Evaluasi Deteksi Anomali")
             col_an1, col_an2 = st.columns(2)
             with col_an1:
                 st.write("**Proyeksi Titik Anomali vs Normal (2D PCA):**")
@@ -500,7 +499,7 @@ with tab_viz:
         st.markdown("---")
         
         # 3. Grafik Perbandingan Semua Algoritma (Leaderboard Bar Chart)
-        st.markdown("#### 🏆 Perbandingan Performa Seluruh Algoritma (Leaderboard)")
+        st.markdown("#### Perbandingan Performa Seluruh Algoritma (Leaderboard)")
         fig_board, ax_board = plt.subplots(figsize=(8.5, 3.8))
         try:
             results.plot(kind="leaderboard", ax=ax_board)
@@ -511,7 +510,7 @@ with tab_viz:
             plt.close(fig_board)
 
         # 4. Diagram Alur Pipeline Data Mining
-        st.markdown("#### 🏗️ Diagram Alur Pipeline Data Mining (Arsitektur)")
+        st.markdown("#### Diagram Alur Pipeline Data Mining (Arsitektur)")
         fig_pipe, ax_pipe = plt.subplots(figsize=(9, 2.6))
         try:
             results.plot(kind="pipeline", ax=ax_pipe)
@@ -521,7 +520,7 @@ with tab_viz:
         finally:
             plt.close(fig_pipe)
     else:
-        st.info("Tekan tombol **'🚀 Jalankan Penambangan Data Sekarang'** pada bilah sisi kiri terlebih dahulu untuk melihat seluruh visualisasi.")
+        st.info("Tekan tombol **'Jalankan Penambangan Data Sekarang'** pada bilah sisi kiri terlebih dahulu untuk melihat seluruh visualisasi.")
 
 # ----------------- TAB 4: KESIMPULAN ILMIAH -----------------
 with tab_summary:
@@ -541,14 +540,14 @@ with tab_summary:
         st.info("Jalankan pemodelan terlebih dahulu untuk menghasilkan kesimpulan naratif otomatis.")
         
     st.markdown("---")
-    st.subheader("📚 Kamus Konsep Data Mining Interaktif")
+    st.subheader("Kamus Konsep Data Mining Interaktif")
     selected_concept = st.selectbox("Pilih Konsep yang Ingin Dipelajari:", list_concepts())
     if selected_concept:
         st.text(explain_concept(selected_concept))
 
 # ----------------- TAB 5: AUTO TUNING -----------------
 with tab_tuning:
-    st.subheader("⚡ Penyetelan Hyperparameter Otomatis")
+    st.subheader("Penyetelan Hyperparameter Otomatis")
     results = st.session_state.results
     if results is not None:
         if results.task not in {"classification", "regression"}:
@@ -564,8 +563,8 @@ with tab_tuning:
             with col_t2:
                 n_iter_tune = st.slider("Jumlah Iterasi Pengujian Parameter:", 4, 16, 6)
                 
-            if st.button("🚀 Jalankan Auto-Tuning Sekarang", type="primary"):
-                with st.spinner("⏳ Menjalankan penyetelan hyperparameter..."):
+            if st.button("Jalankan Auto-Tuning Sekarang", type="primary"):
+                with st.spinner("Menjalankan penyetelan hyperparameter..."):
                     try:
                         tuned = results.tune(method=tune_method, n_iter=n_iter_tune)
                         st.session_state.tuned_results = tuned
@@ -586,7 +585,7 @@ with tab_tuning:
 
 # ----------------- TAB 6: EKSPOR SKRIPSI / LATEX -----------------
 with tab_export:
-    st.subheader("🎓 Ekspor Hasil untuk Skripsi & Publikasi Jurnal")
+    st.subheader("Ekspor Hasil untuk Skripsi & Publikasi Jurnal")
     results = st.session_state.results
     if results is not None:
         st.write("Salin tabel terformat di bawah ini langsung ke naskah skripsi Microsoft Word, Google Docs, atau Overleaf LaTeX.")
@@ -600,7 +599,7 @@ with tab_export:
         st.code(latex_code, language="latex")
         
         st.markdown("---")
-        st.subheader("💾 Unduh Artefak Model & Laporan")
+        st.subheader("Unduh Artefak Model & Laporan")
         c_down1, c_down2 = st.columns(2)
         with c_down1:
             try:
@@ -609,7 +608,7 @@ with tab_export:
                     with open(tmp_file.name, "rb") as f_in:
                         joblib_bytes = f_in.read()
                 st.download_button(
-                    "📦 Unduh Model Pipeline (.joblib)",
+                    "Unduh Model Pipeline (.joblib)",
                     joblib_bytes,
                     f"model_{results.task}.joblib",
                     "application/octet-stream",
@@ -624,7 +623,7 @@ with tab_export:
                     with open(tmp_html.name, "rb") as f_html:
                         html_bytes = f_html.read()
                 st.download_button(
-                    "🌐 Unduh Laporan Web Lengkap (.html)",
+                    "Unduh Laporan Web Lengkap (.html)",
                     html_bytes,
                     f"laporan_{results.task}.html",
                     "text/html",
@@ -637,7 +636,7 @@ with tab_export:
 
 # ----------------- TAB 7: UJI PREDIKSI LANGSUNG -----------------
 with tab_predict:
-    st.subheader("🔮 Uji Prediksi Data Baru Secara Langsung")
+    st.subheader("Uji Prediksi Data Baru Secara Langsung")
     results = st.session_state.results
     if results is not None and results.task in {"classification", "regression"}:
         st.write("Masukkan nilai fitur di bawah untuk melihat hasil prediksi model secara instan:")
@@ -663,11 +662,11 @@ with tab_predict:
                     unique_vals = list(df_fitur[col].dropna().unique())
                     input_data[col] = st.selectbox(f"{col}:", unique_vals)
                     
-        if st.button("🔮 Hitung Prediksi Sekarang", type="primary"):
+        if st.button("Hitung Prediksi Sekarang", type="primary"):
             try:
                 single_row_df = pd.DataFrame([input_data])
                 y_pred = active_pipeline.predict(single_row_df)
-                st.success(f"### 🎉 Hasil Prediksi: `{y_pred[0]}`")
+                st.success(f"### Hasil Prediksi: `{y_pred[0]}`")
             except Exception as e:
                 st.error(f"Gagal melakukan prediksi: {e}")
     else:
